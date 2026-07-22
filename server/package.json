@@ -8,9 +8,9 @@
     "start": "node src/server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Busiswa Bili-bili",
   "license": "ISC",
-  "description": "",
+  "description": "REST API for the Student Portal application",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
