@@ -1,28 +1,13 @@
 import AppError from "../utils/AppError.js";
 import { comparePasswords, hashPassword } from "../utils/password.js";
 import { generateAccessToken } from "../utils/jwt.js";
+import formatUser from "../utils/formatUser.js";
 import {
   createUser,
   findUserByEmail,
   findUserById,
   updateLastLogin,
 } from "../repositories/userRepository.js";
-
-const formatUser = (user) => ({
-  id: user.id,
-  firstName: user.first_name,
-  lastName: user.last_name,
-  fullName: `${user.first_name} ${user.last_name}`,
-  email: user.email,
-  role: user.role,
-  isActive: Boolean(user.is_active),
-  lastLoginAt: user.last_login_at,
-  studentNumber: user.student_number || null,
-  phoneNumber: user.phone_number || null,
-  programme: user.programme || null,
-  yearLevel: user.year_level || null,
-  profileImageUrl: user.profile_image_url || null,
-});
 
 export const loginUser = async ({ email, password }) => {
   const user = await findUserByEmail(email);
