@@ -2,9 +2,14 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
-import authRoutes from "./routes/authRoutes.js";
+import rateLimit from "express-rate-limit";
+
+import notFound from "./middleware/notFound.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
+
+app.set("trust proxy", 1);
 
 app.use(helmet());
 
@@ -17,7 +22,23 @@ app.use(
 
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan("dev"));
+
+if (process.env.NODE_ENV !== "test") {
+  app.use(morgan("dev"));
+}
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 200,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests. Please try again later.",
+  },
+});
+
+app.use("/api", apiLimiter);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -26,8 +47,6 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
-
-app.use("/api/auth", authRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
