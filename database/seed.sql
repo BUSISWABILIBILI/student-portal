@@ -23,7 +23,8 @@ INSERT INTO courses (
     department,
     semester,
     year_level,
-    capacity
+    capacity,
+    is_active,
 )
 VALUES
 (
@@ -34,7 +35,8 @@ VALUES
     'Information Technology',
     'first',
     1,
-    120
+    120,
+    TRUE
 ),
 (
     'DBS201',
@@ -44,7 +46,8 @@ VALUES
     'Information Technology',
     'second',
     2,
-    100
+    100,
+    TRUE
 ),
 (
     'WEB301',
@@ -54,7 +57,8 @@ VALUES
     'Information Technology',
     'second',
     3,
-    80
+    80,
+    TRUE
 ),
 (
     'SEN301',
@@ -64,5 +68,15 @@ VALUES
     'Computer Science',
     'year',
     3,
-    80
-);
+    80,
+    TRUE
+)
+ON DUPLICATE KEY UPDATE
+    course_name = VALUES(course_name),
+    description = VALUES(description),
+    credits = VALUES(credits),
+    department = VALUES(department),
+    semester = VALUES(semester),
+    year_level = VALUES(year_level),
+    capacity = VALUES(capacity),
+    is_active = VALUES(is_active);
