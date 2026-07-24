@@ -156,23 +156,39 @@ CREATE TABLE enrollments (
 CREATE TABLE results (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     enrollment_id INT UNSIGNED NOT NULL,
-    assessment_mark DECIMAL(5, 2) NULL,
-    exam_mark DECIMAL(5, 2) NULL,
+
+    coursework_mark DECIMAL(5, 2) NULL,
+    examination_mark DECIMAL(5, 2) NULL,
     final_mark DECIMAL(5, 2) NULL,
+
     grade VARCHAR(5) NULL,
-    status ENUM(
-        'pending',
-        'passed',
-        'failed',
-        'supplementary'
-    ) NOT NULL DEFAULT 'pending',
-    published_at DATETIME NULL,
+    grade_point DECIMAL(3, 2) NULL,
+
+    outcome ENUM(
+        'pass',
+        'fail',
+        'incomplete'
+    ) NOT NULL DEFAULT 'incomplete',
+
+    publication_status ENUM(
+        'draft',
+        'published'
+    ) NOT NULL DEFAULT 'draft',
+
+    remarks VARCHAR(500) NULL,
+
+    captured_by INT UNSIGNED NULL,
+    published_at TIMESTAMP NULL,
+
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_results_enrollment (enrollment_id),
+    KEY idx_results_status (publication_status),
+    KEY idx_results_outcome (outcome),
+    KEY idx_results_final_mark (final_mark),
 
     CONSTRAINT fk_results_enrollment
         FOREIGN KEY (enrollment_id)
@@ -180,22 +196,34 @@ CREATE TABLE results (
         ON DELETE CASCADE
         ON UPDATE CASCADE,
 
-    CONSTRAINT chk_assessment_mark
+    CONSTRAINT fk_results_captured_by
+        FOREIGN KEY (captured_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+
+    CONSTRAINT chk_coursework_mark
         CHECK (
-            assessment_mark IS NULL
-            OR assessment_mark BETWEEN 0 AND 100
+            coursework_mark IS NULL
+            OR coursework_mark BETWEEN 0 AND 100
         ),
 
-    CONSTRAINT chk_exam_mark
+    CONSTRAINT chk_examination_mark
         CHECK (
-            exam_mark IS NULL
-            OR exam_mark BETWEEN 0 AND 100
+            examination_mark IS NULL
+            OR examination_mark BETWEEN 0 AND 100
         ),
 
     CONSTRAINT chk_final_mark
         CHECK (
             final_mark IS NULL
             OR final_mark BETWEEN 0 AND 100
+        ),
+
+    CONSTRAINT chk_grade_point
+        CHECK (
+            grade_point IS NULL
+            OR grade_point BETWEEN 0 AND 4
         )
 );
 
