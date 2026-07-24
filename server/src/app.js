@@ -11,6 +11,7 @@ import errorHandler from "./middleware/errorHandler.js";
 import courseRoutes from "./routes/courseRoutes.js";
 import enrollmentRoutes from "./routes/enrollmentRoutes.js";
 import resultRoutes from "./routes/resultRoutes.js";
+import announcementRoutes from "./routes/announcementRoutes.js";
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/results", resultRoutes);
+app.use("/api/announcements", announcementRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
