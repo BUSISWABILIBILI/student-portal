@@ -1,6 +1,6 @@
 import pool from "../config/database.js";
 
-const resultSelect = `
+const resultSelectColumns = `
   r.id,
   r.enrollment_id,
   r.coursework_mark,
@@ -15,61 +15,100 @@ const resultSelect = `
   r.published_at,
   r.created_at,
   r.updated_at,
-
+  e.student_id,
+  e.course_id,
+  e.academic_period_id,
   e.status AS enrollment_status,
-  e.registered_at,
-
-  sp.id AS student_profile_id,
+  u.first_name AS student_first_name,
+  u.last_name AS student_last_name,
+  u.email AS student_email,
   sp.student_number,
   sp.programme,
   sp.year_level,
-
-  u.id AS user_id,
-  u.first_name,
-  u.last_name,
-  u.email,
-
-  c.id AS course_id,
   c.course_code,
   c.course_name,
   c.department,
-  c.credit_value,
-
-  ap.id AS academic_period_id,
-  ap.name AS academic_period_name,
-  ap.academic_year
+  c.credits,
+  ap.academic_year,
+  ap.semester,
+  captured.first_name AS captured_by_first_name,
+  captured.last_name AS captured_by_last_name,
+  captured.email AS captured_by_email
 `;
 
-export const findEnrollmentForResult = async (
+const resultJoinClause = `
+  FROM results AS r
+  INNER JOIN enrollments AS e
+    ON e.id = r.enrollment_id
+  INNER JOIN users AS u
+    ON u.id = e.student_id
+  LEFT JOIN student_profiles AS sp
+    ON sp.user_id = u.id
+  INNER JOIN courses AS c
+    ON c.id = e.course_id
+  INNER JOIN academic_periods AS ap
+    ON ap.id = e.academic_period_id
+  LEFT JOIN users AS captured
+    ON captured.id = r.captured_by
+`;
+
+const sortColumnMap = {
+  studentName: "CONCAT(u.first_name, ' ', u.last_name)",
+  studentNumber: "sp.student_number",
+  courseCode: "c.course_code",
+  finalMark: "r.final_mark",
+  createdAt: "r.created_at",
+};
+
+export const findEnrollmentForResultById = async (
   enrollmentId,
   connection = pool,
 ) => {
   const [rows] = await connection.execute(
     `
-          SELECT
-            e.id,
-            e.student_id,
-            e.course_id,
-            e.academic_period_id,
-            e.status,
-            sp.user_id,
-            sp.student_number,
-            c.course_code,
-            c.course_name,
-            c.credit_value,
-            ap.name AS academic_period_name,
-            ap.academic_year
-          FROM enrollments AS e
-          INNER JOIN student_profiles AS sp
-            ON sp.id = e.student_id
-          INNER JOIN courses AS c
-            ON c.id = e.course_id
-          INNER JOIN academic_periods AS ap
-            ON ap.id = e.academic_period_id
-          WHERE e.id = ?
-          LIMIT 1
-        `,
+      SELECT
+        e.id AS enrollment_id,
+        e.student_id,
+        e.course_id,
+        e.academic_period_id,
+        e.status AS enrollment_status,
+        u.first_name AS student_first_name,
+        u.last_name AS student_last_name,
+        u.email AS student_email,
+        sp.student_number,
+        c.course_code,
+        c.course_name,
+        c.credits,
+        ap.academic_year,
+        ap.semester
+      FROM enrollments AS e
+      INNER JOIN users AS u
+        ON u.id = e.student_id
+      LEFT JOIN student_profiles AS sp
+        ON sp.user_id = u.id
+      INNER JOIN courses AS c
+        ON c.id = e.course_id
+      INNER JOIN academic_periods AS ap
+        ON ap.id = e.academic_period_id
+      WHERE e.id = ?
+      LIMIT 1
+    `,
     [enrollmentId],
+  );
+
+  return rows[0] || null;
+};
+
+export const findResultById = async (resultId, connection = pool) => {
+  const [rows] = await connection.execute(
+    `
+      SELECT
+        ${resultSelectColumns}
+      ${resultJoinClause}
+      WHERE r.id = ?
+      LIMIT 1
+    `,
+    [resultId],
   );
 
   return rows[0] || null;
@@ -81,48 +120,13 @@ export const findResultByEnrollmentId = async (
 ) => {
   const [rows] = await connection.execute(
     `
-          SELECT
-            ${resultSelect}
-          FROM results AS r
-          INNER JOIN enrollments AS e
-            ON e.id = r.enrollment_id
-          INNER JOIN student_profiles AS sp
-            ON sp.id = e.student_id
-          INNER JOIN users AS u
-            ON u.id = sp.user_id
-          INNER JOIN courses AS c
-            ON c.id = e.course_id
-          INNER JOIN academic_periods AS ap
-            ON ap.id = e.academic_period_id
-          WHERE r.enrollment_id = ?
-          LIMIT 1
-        `,
+      SELECT
+        ${resultSelectColumns}
+      ${resultJoinClause}
+      WHERE r.enrollment_id = ?
+      LIMIT 1
+    `,
     [enrollmentId],
-  );
-
-  return rows[0] || null;
-};
-
-export const findResultById = async (resultId, connection = pool) => {
-  const [rows] = await connection.execute(
-    `
-        SELECT
-          ${resultSelect}
-        FROM results AS r
-        INNER JOIN enrollments AS e
-          ON e.id = r.enrollment_id
-        INNER JOIN student_profiles AS sp
-          ON sp.id = e.student_id
-        INNER JOIN users AS u
-          ON u.id = sp.user_id
-        INNER JOIN courses AS c
-          ON c.id = e.course_id
-        INNER JOIN academic_periods AS ap
-          ON ap.id = e.academic_period_id
-        WHERE r.id = ?
-        LIMIT 1
-      `,
-    [resultId],
   );
 
   return rows[0] || null;
@@ -140,24 +144,24 @@ export const createResultRecord = async (
     remarks,
     capturedBy,
   },
-  connection = pool,
+  connection,
 ) => {
   const [result] = await connection.execute(
     `
-        INSERT INTO results (
-          enrollment_id,
-          coursework_mark,
-          examination_mark,
-          final_mark,
-          grade,
-          grade_point,
-          outcome,
-          publication_status,
-          remarks,
-          captured_by
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)
-      `,
+      INSERT INTO results (
+        enrollment_id,
+        coursework_mark,
+        examination_mark,
+        final_mark,
+        grade,
+        grade_point,
+        outcome,
+        publication_status,
+        remarks,
+        captured_by
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)
+    `,
     [
       enrollmentId,
       courseworkMark,
@@ -174,85 +178,79 @@ export const createResultRecord = async (
   return findResultById(result.insertId, connection);
 };
 
-export const updateResultRecord = async (
-  resultId,
-  {
-    courseworkMark,
-    examinationMark,
-    finalMark,
-    grade,
-    gradePoint,
-    outcome,
-    remarks,
-  },
-  connection = pool,
-) => {
+export const updateResultRecord = async (resultId, changes, connection) => {
+  const fieldMap = {
+    courseworkMark: "coursework_mark",
+    examinationMark: "examination_mark",
+    finalMark: "final_mark",
+    grade: "grade",
+    gradePoint: "grade_point",
+    outcome: "outcome",
+    publicationStatus: "publication_status",
+    publishedAt: "published_at",
+    remarks: "remarks",
+  };
+
+  const assignments = [];
+  const values = [];
+
+  for (const [field, value] of Object.entries(changes)) {
+    const column = fieldMap[field];
+
+    if (!column) {
+      continue;
+    }
+
+    assignments.push(`${column} = ?`);
+    values.push(value);
+  }
+
+  if (assignments.length === 0) {
+    return findResultById(resultId, connection);
+  }
+
+  values.push(resultId);
+
+  await connection.execute(
+    `
+      UPDATE results
+      SET ${assignments.join(", ")}
+      WHERE id = ?
+    `,
+    values,
+  );
+
+  return findResultById(resultId, connection);
+};
+
+export const publishResultRecord = async (resultId, connection) => {
   await connection.execute(
     `
       UPDATE results
       SET
-        coursework_mark = ?,
-        examination_mark = ?,
-        final_mark = ?,
-        grade = ?,
-        grade_point = ?,
-        outcome = ?,
-        remarks = ?,
+        publication_status = 'published',
+        published_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `,
+    [resultId],
+  );
+
+  return findResultById(resultId, connection);
+};
+
+export const unpublishResultRecord = async (resultId, connection) => {
+  await connection.execute(
+    `
+      UPDATE results
+      SET
         publication_status = 'draft',
         published_at = NULL
       WHERE id = ?
     `,
-    [
-      courseworkMark,
-      examinationMark,
-      finalMark,
-      grade,
-      gradePoint,
-      outcome,
-      remarks,
-      resultId,
-    ],
-  );
-
-  return findResultById(resultId, connection);
-};
-
-export const publishResultRecord = async (resultId, connection = pool) => {
-  await connection.execute(
-    `
-        UPDATE results
-        SET
-          publication_status = 'published',
-          published_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `,
     [resultId],
   );
 
   return findResultById(resultId, connection);
-};
-
-export const unpublishResultRecord = async (resultId, connection = pool) => {
-  await connection.execute(
-    `
-        UPDATE results
-        SET
-          publication_status = 'draft',
-          published_at = NULL
-        WHERE id = ?
-      `,
-    [resultId],
-  );
-
-  return findResultById(resultId, connection);
-};
-
-const sortColumnMap = {
-  studentName: "u.last_name",
-  studentNumber: "sp.student_number",
-  courseCode: "c.course_code",
-  finalMark: "r.final_mark",
-  createdAt: "r.created_at",
 };
 
 export const findResults = async ({
@@ -270,7 +268,7 @@ export const findResults = async ({
   const parameters = [];
 
   if (search) {
-    const pattern = `%${search}%`;
+    const searchPattern = `%${search}%`;
 
     conditions.push(`
       (
@@ -283,30 +281,33 @@ export const findResults = async ({
       )
     `);
 
-    parameters.push(pattern, pattern, pattern, pattern, pattern, pattern);
+    parameters.push(
+      searchPattern,
+      searchPattern,
+      searchPattern,
+      searchPattern,
+      searchPattern,
+      searchPattern,
+    );
   }
 
   if (academicPeriodId) {
-    conditions.push("ap.id = ?");
-
+    conditions.push("e.academic_period_id = ?");
     parameters.push(academicPeriodId);
   }
 
   if (courseId) {
-    conditions.push("c.id = ?");
-
+    conditions.push("e.course_id = ?");
     parameters.push(courseId);
   }
 
   if (outcome) {
     conditions.push("r.outcome = ?");
-
     parameters.push(outcome);
   }
 
   if (publicationStatus) {
     conditions.push("r.publication_status = ?");
-
     parameters.push(publicationStatus);
   }
 
@@ -317,48 +318,28 @@ export const findResults = async ({
 
   const safeSortOrder = sortOrder === "asc" ? "ASC" : "DESC";
 
-  const offset = (page - 1) * limit;
+  const safeLimit = Number(limit);
+
+  const safeOffset = (Number(page) - 1) * safeLimit;
 
   const [rows] = await pool.execute(
     `
-        SELECT
-          ${resultSelect}
-        FROM results AS r
-        INNER JOIN enrollments AS e
-          ON e.id = r.enrollment_id
-        INNER JOIN student_profiles AS sp
-          ON sp.id = e.student_id
-        INNER JOIN users AS u
-          ON u.id = sp.user_id
-        INNER JOIN courses AS c
-          ON c.id = e.course_id
-        INNER JOIN academic_periods AS ap
-          ON ap.id = e.academic_period_id
-        ${whereClause}
-        ORDER BY
-          ${safeSortColumn}
-          ${safeSortOrder}
-        LIMIT ? OFFSET ?
-      `,
-    [...parameters, limit, offset],
+      SELECT
+        ${resultSelectColumns}
+      ${resultJoinClause}
+      ${whereClause}
+      ORDER BY ${safeSortColumn} ${safeSortOrder}, r.id DESC
+      LIMIT ${safeLimit} OFFSET ${safeOffset}
+    `,
+    parameters,
   );
 
   const [countRows] = await pool.execute(
     `
-        SELECT COUNT(*) AS total
-        FROM results AS r
-        INNER JOIN enrollments AS e
-          ON e.id = r.enrollment_id
-        INNER JOIN student_profiles AS sp
-          ON sp.id = e.student_id
-        INNER JOIN users AS u
-          ON u.id = sp.user_id
-        INNER JOIN courses AS c
-          ON c.id = e.course_id
-        INNER JOIN academic_periods AS ap
-          ON ap.id = e.academic_period_id
-        ${whereClause}
-      `,
+      SELECT COUNT(*) AS total
+      ${resultJoinClause}
+      ${whereClause}
+    `,
     parameters,
   );
 
@@ -368,46 +349,34 @@ export const findResults = async ({
   };
 };
 
-export const findPublishedResultsForStudent = async (
-  userId,
-  { academicPeriodId, outcome },
-) => {
-  const conditions = ["sp.user_id = ?", "r.publication_status = 'published'"];
+export const findPublishedResultsForStudent = async (userId, filters) => {
+  const conditions = [
+    "e.student_id = ?",
+    "r.publication_status = 'published'",
+  ];
 
   const parameters = [userId];
 
-  if (academicPeriodId) {
-    conditions.push("ap.id = ?");
-
-    parameters.push(academicPeriodId);
+  if (filters.academicPeriodId) {
+    conditions.push("e.academic_period_id = ?");
+    parameters.push(filters.academicPeriodId);
   }
 
-  if (outcome) {
+  if (filters.outcome) {
     conditions.push("r.outcome = ?");
-
-    parameters.push(outcome);
+    parameters.push(filters.outcome);
   }
 
   const [rows] = await pool.execute(
     `
-          SELECT
-            ${resultSelect}
-          FROM results AS r
-          INNER JOIN enrollments AS e
-            ON e.id = r.enrollment_id
-          INNER JOIN student_profiles AS sp
-            ON sp.id = e.student_id
-          INNER JOIN users AS u
-            ON u.id = sp.user_id
-          INNER JOIN courses AS c
-            ON c.id = e.course_id
-          INNER JOIN academic_periods AS ap
-            ON ap.id = e.academic_period_id
-          WHERE ${conditions.join(" AND ")}
-          ORDER BY
-            ap.academic_year DESC,
-            c.course_code ASC
-        `,
+      SELECT
+        ${resultSelectColumns}
+      ${resultJoinClause}
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY
+        ap.academic_year DESC,
+        c.course_code ASC
+    `,
     parameters,
   );
 

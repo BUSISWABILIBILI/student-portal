@@ -74,7 +74,7 @@ export const updateResultSchema = z.object({
 });
 
 export const resultIdSchema = z.object({
-  body: z.object({}),
+  body: z.object({}).default({}),
 
   params: z
     .object({
@@ -86,7 +86,7 @@ export const resultIdSchema = z.object({
 });
 
 export const listResultsSchema = z.object({
-  body: z.object({}),
+  body: z.object({}).default({}),
   params: z.object({}),
 
   query: z
@@ -121,7 +121,7 @@ export const listResultsSchema = z.object({
 });
 
 export const myResultsSchema = z.object({
-  body: z.object({}),
+  body: z.object({}).default({}),
   params: z.object({}),
 
   query: z
