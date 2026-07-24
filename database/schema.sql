@@ -229,25 +229,60 @@ CREATE TABLE results (
 
 CREATE TABLE announcements (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    author_id INT UNSIGNED NOT NULL,
-    title VARCHAR(180) NOT NULL,
+
+    title VARCHAR(150) NOT NULL,
     content TEXT NOT NULL,
-    audience ENUM(
+
+    target_type ENUM(
         'all',
-        'students',
-        'admins'
+        'role',
+        'student'
     ) NOT NULL DEFAULT 'all',
-    is_published BOOLEAN NOT NULL DEFAULT TRUE,
-    published_at DATETIME NULL,
-    expires_at DATETIME NULL,
+
+    target_role ENUM(
+        'admin',
+        'student'
+    ) NULL,
+
+    target_student_id INT UNSIGNED NULL,
+
+    priority ENUM(
+        'low',
+        'normal',
+        'high',
+        'urgent'
+    ) NOT NULL DEFAULT 'normal',
+
+    publication_status ENUM(
+        'draft',
+        'published'
+    ) NOT NULL DEFAULT 'draft',
+
+    publish_at TIMESTAMP NULL,
+    expires_at TIMESTAMP NULL,
+
+    created_by INT UNSIGNED NOT NULL,
+
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
+    KEY idx_announcements_status (publication_status),
+    KEY idx_announcements_target_type (target_type),
+    KEY idx_announcements_target_role (target_role),
+    KEY idx_announcements_target_student (target_student_id),
+    KEY idx_announcements_publish_at (publish_at),
+    KEY idx_announcements_expires_at (expires_at),
 
-    CONSTRAINT fk_announcements_author
-        FOREIGN KEY (author_id)
+    CONSTRAINT fk_announcements_student
+        FOREIGN KEY (target_student_id)
+        REFERENCES student_profiles(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_announcements_creator
+        FOREIGN KEY (created_by)
         REFERENCES users(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
