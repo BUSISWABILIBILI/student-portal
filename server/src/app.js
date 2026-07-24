@@ -10,6 +10,7 @@ import notFound from "./middleware/notFound.js";
 import errorHandler from "./middleware/errorHandler.js";
 import courseRoutes from "./routes/courseRoutes.js";
 import enrollmentRoutes from "./routes/enrollmentRoutes.js";
+import resultRoutes from "./routes/resultRoutes.js";
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
+app.use("/api/results", resultRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
