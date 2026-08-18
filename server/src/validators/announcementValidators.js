@@ -15,76 +15,145 @@ const nullableDate = z
   ])
   .optional();
 
+const titleSchema = z
+  .string()
+  .trim()
+  .min(3, "Title must contain at least 3 characters.")
+  .max(150);
+
+const contentSchema = z
+  .string()
+  .trim()
+  .min(5, "Announcement content is required.")
+  .max(10000);
+
+const targetTypeSchema = z.enum(["all", "role", "student"]);
+
+const targetRoleSchema = z.enum(["admin", "student"]).nullable();
+
+const targetStudentIdSchema = positiveId("Target student ID").nullable();
+
+const prioritySchema = z.enum(["low", "normal", "high", "urgent"]);
+
+const validateAnnouncementBody = (
+  data,
+  context,
+  { requireTargetDetails } = {},
+) => {
+  const targetTypeProvided = Object.hasOwn(data, "targetType");
+
+  if (
+    data.targetType === "role" &&
+    (requireTargetDetails || targetTypeProvided) &&
+    !data.targetRole
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["targetRole"],
+      message: "Target role is required for role announcements.",
+    });
+  }
+
+  if (
+    data.targetType === "student" &&
+    (requireTargetDetails || targetTypeProvided) &&
+    !data.targetStudentId
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["targetStudentId"],
+      message: "Target student ID is required for student announcements.",
+    });
+  }
+
+  if (
+    (requireTargetDetails || targetTypeProvided) &&
+    data.targetType !== "role" &&
+    data.targetRole
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["targetRole"],
+      message: "Target role may only be used with role announcements.",
+    });
+  }
+
+  if (
+    (requireTargetDetails || targetTypeProvided) &&
+    data.targetType !== "student" &&
+    data.targetStudentId
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["targetStudentId"],
+      message: "Target student may only be used with student announcements.",
+    });
+  }
+
+  if (
+    data.publishAt &&
+    data.expiresAt &&
+    new Date(data.expiresAt) <= new Date(data.publishAt)
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["expiresAt"],
+      message: "Expiry date must be later than the publication date.",
+    });
+  }
+};
+
 const announcementBodySchema = z
   .object({
-    title: z
-      .string()
-      .trim()
-      .min(3, "Title must contain at least 3 characters.")
-      .max(150),
+    title: titleSchema,
 
-    content: z
-      .string()
-      .trim()
-      .min(5, "Announcement content is required.")
-      .max(10000),
+    content: contentSchema,
 
-    targetType: z.enum(["all", "role", "student"]),
+    targetType: targetTypeSchema,
 
-    targetRole: z.enum(["admin", "student"]).nullable().optional(),
+    targetRole: targetRoleSchema.optional(),
 
-    targetStudentId: positiveId("Target student ID").nullable().optional(),
+    targetStudentId: targetStudentIdSchema.optional(),
 
-    priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+    priority: prioritySchema.default("normal"),
 
     publishAt: nullableDate,
     expiresAt: nullableDate,
   })
   .strict()
   .superRefine((data, context) => {
-    if (data.targetType === "role" && !data.targetRole) {
+    validateAnnouncementBody(data, context, {
+      requireTargetDetails: true,
+    });
+  });
+
+const updateAnnouncementBodySchema = z
+  .object({
+    title: titleSchema.optional(),
+
+    content: contentSchema.optional(),
+
+    targetType: targetTypeSchema.optional(),
+
+    targetRole: targetRoleSchema.optional(),
+
+    targetStudentId: targetStudentIdSchema.optional(),
+
+    priority: prioritySchema.optional(),
+
+    publishAt: nullableDate,
+    expiresAt: nullableDate,
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (Object.keys(data).length === 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["targetRole"],
-        message: "Target role is required for role announcements.",
+        message: "Provide at least one announcement field to update.",
       });
     }
 
-    if (data.targetType === "student" && !data.targetStudentId) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["targetStudentId"],
-        message: "Target student ID is required for student announcements.",
-      });
-    }
-
-    if (data.targetType !== "role" && data.targetRole) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["targetRole"],
-        message: "Target role may only be used with role announcements.",
-      });
-    }
-
-    if (data.targetType !== "student" && data.targetStudentId) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["targetStudentId"],
-        message: "Target student may only be used with student announcements.",
-      });
-    }
-
-    if (
-      data.publishAt &&
-      data.expiresAt &&
-      new Date(data.expiresAt) <= new Date(data.publishAt)
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["expiresAt"],
-        message: "Expiry date must be later than the publication date.",
-      });
-    }
+    validateAnnouncementBody(data, context);
   });
 
 export const createAnnouncementSchema = z.object({
@@ -94,11 +163,7 @@ export const createAnnouncementSchema = z.object({
 });
 
 export const updateAnnouncementSchema = z.object({
-  body: announcementBodySchema
-    .partial()
-    .refine((body) => Object.keys(body).length > 0, {
-      message: "Provide at least one announcement field to update.",
-    }),
+  body: updateAnnouncementBodySchema,
 
   params: z
     .object({
