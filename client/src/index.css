@@ -473,6 +473,14 @@ td {
   grid-template-columns: minmax(260px, 2fr) repeat(5, minmax(120px, 1fr));
 }
 
+.user-form-grid {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+.address-form-grid {
+  grid-template-columns: minmax(260px, 2fr) repeat(3, minmax(120px, 1fr));
+}
+
 .checkbox-field {
   align-content: end;
   grid-template-columns: auto 1fr;
@@ -668,6 +676,8 @@ td {
   .form-grid,
   .results-form-grid,
   .announcement-form-grid,
+  .user-form-grid,
+  .address-form-grid,
   .announcement-list-item {
     grid-template-columns: 1fr;
   }

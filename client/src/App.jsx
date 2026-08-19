@@ -59,6 +59,22 @@ const ANNOUNCEMENT_FORM_INITIAL_STATE = {
   publishAt: "",
   expiresAt: "",
 };
+const USER_FORM_INITIAL_STATE = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+  programme: "",
+  yearLevel: "1",
+  dateOfBirth: "",
+  gender: "",
+  phoneNumber: "",
+  addressLine: "",
+  city: "",
+  province: "",
+  postalCode: "",
+  admissionDate: "",
+};
 
 const formatNumber = (value) => Number(value || 0).toLocaleString();
 
@@ -1840,40 +1856,122 @@ function getAnnouncementPillClass(announcement) {
 }
 
 function UsersPage() {
-  const { data, error, isLoading } = useApiResource(
-    "/users?limit=20",
+  const { user } = useAuth();
+  const userResource = useApiResource(
+    "/users?limit=50&sortBy=createdAt&sortOrder=desc",
     EMPTY_USERS,
   );
+  const [editingUser, setEditingUser] = useState(null);
+  const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [busyKey, setBusyKey] = useState("");
+  const users = userResource.data.users || [];
+
+  const handleUserSaved = (message) => {
+    setNotice(message);
+    setActionError("");
+    setEditingUser(null);
+    userResource.refetch();
+  };
+
+  const handleStatusChange = async (userRecord) => {
+    setNotice("");
+    setActionError("");
+    setBusyKey(`user-${userRecord.id}`);
+
+    try {
+      const response = await api.patch(`/users/${userRecord.id}/status`, {
+        isActive: !userRecord.isActive,
+      });
+
+      setNotice(response.data.message);
+      userResource.refetch();
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError));
+    } finally {
+      setBusyKey("");
+    }
+  };
 
   return (
     <>
       <SectionHeader eyebrow="Administration" title="Users" />
-      {isLoading && <PageLoader label="Loading users" />}
-      {error && <ErrorState message={error} />}
-      {!isLoading && !error && data.users.length === 0 && (
+      <AdminUserPanel
+        editingUser={editingUser}
+        onCancelEdit={() => setEditingUser(null)}
+        onSaved={handleUserSaved}
+      />
+      {notice && <p className="inline-success">{notice}</p>}
+      {actionError && <ErrorState message={actionError} />}
+      {userResource.isLoading && <PageLoader label="Loading users" />}
+      {userResource.error && <ErrorState message={userResource.error} />}
+      {!userResource.isLoading && !userResource.error && users.length === 0 && (
         <EmptyState
           title="No users found"
           message="User accounts created by administrators will appear here."
         />
       )}
-      {!isLoading && !error && data.users.length > 0 && (
+      {!userResource.isLoading && !userResource.error && users.length > 0 && (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Student number</th>
+                <th>Programme</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {data.users.map((userRecord) => (
+              {users.map((userRecord) => (
                 <tr key={userRecord.id}>
-                  <td>{userRecord.fullName}</td>
+                  <td>
+                    <strong>{userRecord.fullName}</strong>
+                    <span className="table-subtext">
+                      Joined {formatShortDate(userRecord.createdAt)}
+                    </span>
+                  </td>
                   <td>{userRecord.email}</td>
+                  <td>{userRecord.studentProfile?.studentNumber || "N/A"}</td>
+                  <td>{userRecord.studentProfile?.programme || "N/A"}</td>
                   <td>{userRecord.role}</td>
-                  <td>{userRecord.isActive ? "Active" : "Inactive"}</td>
+                  <td>
+                    <span
+                      className={userRecord.isActive ? "pill" : "pill muted-pill"}
+                    >
+                      {userRecord.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      <button
+                        className="ghost-button compact-button"
+                        disabled={Boolean(busyKey)}
+                        onClick={() => {
+                          setNotice("");
+                          setActionError("");
+                          setEditingUser(userRecord);
+                        }}
+                        type="button"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="ghost-button compact-button"
+                        disabled={
+                          busyKey === `user-${userRecord.id}` ||
+                          (userRecord.id === user.id && userRecord.isActive)
+                        }
+                        onClick={() => handleStatusChange(userRecord)}
+                        type="button"
+                      >
+                        {userRecord.isActive ? "Deactivate" : "Activate"}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1882,6 +1980,314 @@ function UsersPage() {
       )}
     </>
   );
+}
+
+function AdminUserPanel({ editingUser, onCancelEdit, onSaved }) {
+  const [form, setForm] = useState(USER_FORM_INITIAL_STATE);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = Boolean(editingUser);
+  const isStudent = !isEditing || editingUser.role === "student";
+
+  useEffect(() => {
+    if (!editingUser) {
+      setForm(USER_FORM_INITIAL_STATE);
+      setError("");
+      return;
+    }
+
+    const profile = editingUser.studentProfile || {};
+
+    setForm({
+      firstName: editingUser.firstName,
+      lastName: editingUser.lastName,
+      email: editingUser.email,
+      password: "",
+      programme: profile.programme || "",
+      yearLevel: profile.yearLevel ? String(profile.yearLevel) : "1",
+      dateOfBirth: dateToInputValue(profile.dateOfBirth),
+      gender: profile.gender || "",
+      phoneNumber: profile.phoneNumber || "",
+      addressLine: profile.addressLine || "",
+      city: profile.city || "",
+      province: profile.province || "",
+      postalCode: profile.postalCode || "",
+      admissionDate: dateToInputValue(profile.admissionDate),
+    });
+    setError("");
+  }, [editingUser]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const buildAccountPayload = () => ({
+    firstName: form.firstName,
+    lastName: form.lastName,
+    email: form.email,
+  });
+
+  const buildStudentPayload = () => ({
+    programme: form.programme,
+    yearLevel: Number(form.yearLevel),
+    dateOfBirth: optionalDateValue(form.dateOfBirth),
+    gender: form.gender || null,
+    phoneNumber: optionalTextValue(form.phoneNumber),
+    addressLine: optionalTextValue(form.addressLine),
+    city: optionalTextValue(form.city),
+    province: optionalTextValue(form.province),
+    postalCode: optionalTextValue(form.postalCode),
+    admissionDate: optionalDateValue(form.admissionDate),
+  });
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      if (isEditing) {
+        const accountResponse = await api.patch(
+          `/users/${editingUser.id}`,
+          buildAccountPayload(),
+        );
+
+        if (isStudent) {
+          await api.patch(
+            `/users/${editingUser.id}/student-profile`,
+            buildStudentPayload(),
+          );
+        }
+
+        onSaved(
+          isStudent
+            ? "User account and student profile updated successfully."
+            : accountResponse.data.message,
+        );
+      } else {
+        const response = await api.post("/users/students", {
+          ...buildAccountPayload(),
+          password: form.password,
+          ...buildStudentPayload(),
+        });
+
+        setForm(USER_FORM_INITIAL_STATE);
+        onSaved(response.data.message);
+      }
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="data-section user-editor" aria-labelledby="user-form-title">
+      <div className="editor-heading">
+        <div>
+          <p className="eyebrow">Directory</p>
+          <h2 id="user-form-title">
+            {isEditing ? "Edit user" : "New student"}
+          </h2>
+        </div>
+        {isEditing && (
+          <button
+            className="ghost-button compact-button"
+            onClick={onCancelEdit}
+            type="button"
+          >
+            Cancel edit
+          </button>
+        )}
+      </div>
+      <form className="resource-form" onSubmit={handleSubmit}>
+        <div className="form-grid user-form-grid">
+          <label>
+            First name
+            <input
+              name="firstName"
+              onChange={handleChange}
+              required
+              value={form.firstName}
+            />
+          </label>
+          <label>
+            Last name
+            <input
+              name="lastName"
+              onChange={handleChange}
+              required
+              value={form.lastName}
+            />
+          </label>
+          <label>
+            Email
+            <input
+              name="email"
+              onChange={handleChange}
+              required
+              type="email"
+              value={form.email}
+            />
+          </label>
+          {!isEditing && (
+            <label>
+              Temporary password
+              <input
+                name="password"
+                onChange={handleChange}
+                required
+                type="password"
+                value={form.password}
+              />
+            </label>
+          )}
+          {isStudent && (
+            <>
+              <label>
+                Programme
+                <input
+                  name="programme"
+                  onChange={handleChange}
+                  required
+                  value={form.programme}
+                />
+              </label>
+              <label>
+                Year level
+                <input
+                  max="10"
+                  min="1"
+                  name="yearLevel"
+                  onChange={handleChange}
+                  required
+                  type="number"
+                  value={form.yearLevel}
+                />
+              </label>
+              <label>
+                Date of birth
+                <input
+                  name="dateOfBirth"
+                  onChange={handleChange}
+                  type="date"
+                  value={form.dateOfBirth}
+                />
+              </label>
+              <label>
+                Gender
+                <select name="gender" onChange={handleChange} value={form.gender}>
+                  <option value="">Unspecified</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                  <option value="other">Other</option>
+                  <option value="prefer_not_to_say">Prefer not to say</option>
+                </select>
+              </label>
+              <label>
+                Phone
+                <input
+                  name="phoneNumber"
+                  onChange={handleChange}
+                  value={form.phoneNumber}
+                />
+              </label>
+              <label>
+                Admission date
+                <input
+                  name="admissionDate"
+                  onChange={handleChange}
+                  type="date"
+                  value={form.admissionDate}
+                />
+              </label>
+            </>
+          )}
+        </div>
+        {isStudent && (
+          <div className="form-grid address-form-grid">
+            <label>
+              Address
+              <input
+                name="addressLine"
+                onChange={handleChange}
+                value={form.addressLine}
+              />
+            </label>
+            <label>
+              City
+              <input name="city" onChange={handleChange} value={form.city} />
+            </label>
+            <label>
+              Province
+              <input
+                name="province"
+                onChange={handleChange}
+                value={form.province}
+              />
+            </label>
+            <label>
+              Postal code
+              <input
+                name="postalCode"
+                onChange={handleChange}
+                value={form.postalCode}
+              />
+            </label>
+          </div>
+        )}
+        {error && <p className="form-error">{error}</p>}
+        <button
+          className="primary-button form-action"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          {isSubmitting
+            ? isEditing
+              ? "Updating"
+              : "Creating"
+            : isEditing
+              ? "Update user"
+              : "Create student"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function optionalTextValue(value) {
+  const trimmedValue = value.trim();
+
+  return trimmedValue ? trimmedValue : null;
+}
+
+function optionalDateValue(value) {
+  return value || null;
+}
+
+function dateToInputValue(value) {
+  if (!value) {
+    return "";
+  }
+
+  return String(value).slice(0, 10);
+}
+
+function formatShortDate(value) {
+  if (!value) {
+    return "unknown";
+  }
+
+  return new Date(value).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function App() {
