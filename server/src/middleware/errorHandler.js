@@ -34,7 +34,7 @@ const errorHandler = (error, req, res, next) => {
     error.message ||
     "An unexpected server error occurred.";
 
-  if (process.env.NODE_ENV !== "production") {
+  if (!["production", "test"].includes(process.env.NODE_ENV)) {
     console.error(error);
   }
 
