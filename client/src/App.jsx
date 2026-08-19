@@ -50,6 +50,15 @@ const RESULT_FORM_INITIAL_STATE = {
   examinationMark: "",
   remarks: "",
 };
+const ANNOUNCEMENT_FORM_INITIAL_STATE = {
+  title: "",
+  content: "",
+  targetType: "all",
+  targetRole: "student",
+  priority: "normal",
+  publishAt: "",
+  expiresAt: "",
+};
 
 const formatNumber = (value) => Number(value || 0).toLocaleString();
 
@@ -1411,40 +1420,423 @@ function AnnouncementsPage() {
   const { user } = useAuth();
   const path =
     user.role === "admin"
-      ? "/announcements?limit=20"
+      ? "/announcements?limit=50&sortOrder=desc"
       : "/announcements/me?limit=20";
-  const { data, error, isLoading } = useApiResource(
-    path,
-    EMPTY_ANNOUNCEMENTS,
-  );
-  const announcements = data.announcements || [];
+  const announcementResource = useApiResource(path, EMPTY_ANNOUNCEMENTS);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
+  const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [busyKey, setBusyKey] = useState("");
+  const announcements = announcementResource.data.announcements || [];
+
+  const handleAnnouncementSaved = (message) => {
+    setNotice(message);
+    setActionError("");
+    setEditingAnnouncement(null);
+    announcementResource.refetch();
+  };
+
+  const handlePublicationChange = async (announcement) => {
+    const isPublished = announcement.publicationStatus === "published";
+
+    setNotice("");
+    setActionError("");
+    setBusyKey(`announcement-${announcement.id}`);
+
+    try {
+      const response = await api.patch(
+        `/announcements/${announcement.id}/${
+          isPublished ? "unpublish" : "publish"
+        }`,
+      );
+
+      setNotice(response.data.message);
+      announcementResource.refetch();
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError));
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcement) => {
+    const confirmed = window.confirm(
+      `Delete "${announcement.title}"? This cannot be undone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setNotice("");
+    setActionError("");
+    setBusyKey(`delete-announcement-${announcement.id}`);
+
+    try {
+      const response = await api.delete(`/announcements/${announcement.id}`);
+
+      setNotice(response.data.message);
+      announcementResource.refetch();
+
+      if (editingAnnouncement?.id === announcement.id) {
+        setEditingAnnouncement(null);
+      }
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError));
+    } finally {
+      setBusyKey("");
+    }
+  };
 
   return (
     <>
       <SectionHeader eyebrow="Messages" title="Announcements" />
-      {isLoading && <PageLoader label="Loading announcements" />}
-      {error && <ErrorState message={error} />}
-      {!isLoading && !error && announcements.length === 0 && (
+      {user.role === "admin" && (
+        <AdminAnnouncementPanel
+          editingAnnouncement={editingAnnouncement}
+          onCancelEdit={() => setEditingAnnouncement(null)}
+          onSaved={handleAnnouncementSaved}
+        />
+      )}
+      {notice && <p className="inline-success">{notice}</p>}
+      {actionError && <ErrorState message={actionError} />}
+      {announcementResource.isLoading && (
+        <PageLoader label="Loading announcements" />
+      )}
+      {announcementResource.error && (
+        <ErrorState message={announcementResource.error} />
+      )}
+      {!announcementResource.isLoading &&
+        !announcementResource.error &&
+        announcements.length === 0 && (
         <EmptyState
           title="No announcements"
           message="Published announcements will appear here."
         />
       )}
-      {!isLoading && !error && announcements.length > 0 && (
+      {!announcementResource.isLoading &&
+        !announcementResource.error &&
+        announcements.length > 0 && (
         <div className="item-list">
           {announcements.map((announcement) => (
-            <article className="list-item announcement" key={announcement.id}>
-              <div>
-                <strong>{announcement.title}</strong>
+            <article
+              className="list-item announcement announcement-list-item"
+              key={announcement.id}
+            >
+              <div className="announcement-main">
+                <div className="announcement-heading">
+                  <strong>{announcement.title}</strong>
+                  <span className={getAnnouncementPillClass(announcement)}>
+                    {announcement.priority}
+                  </span>
+                </div>
                 <span>{announcement.content}</span>
+                <div className="announcement-meta">
+                  <span>{getAnnouncementTargetLabel(announcement)}</span>
+                  <span>
+                    {announcement.publicationStatus === "published"
+                      ? `Published ${formatAnnouncementDate(
+                          announcement.publishAt,
+                        )}`
+                      : "Draft"}
+                  </span>
+                  {announcement.expiresAt && (
+                    <span>
+                      Expires {formatAnnouncementDate(announcement.expiresAt)}
+                    </span>
+                  )}
+                </div>
               </div>
-              <span className="pill">{announcement.priority}</span>
+              {user.role === "admin" && (
+                <div className="announcement-actions">
+                  <button
+                    className="ghost-button compact-button"
+                    disabled={Boolean(busyKey)}
+                    onClick={() => {
+                      setNotice("");
+                      setActionError("");
+                      setEditingAnnouncement(announcement);
+                    }}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="primary-button compact-button"
+                    disabled={busyKey === `announcement-${announcement.id}`}
+                    onClick={() => handlePublicationChange(announcement)}
+                    type="button"
+                  >
+                    {announcement.publicationStatus === "published"
+                      ? "Unpublish"
+                      : "Publish"}
+                  </button>
+                  <button
+                    className="ghost-button compact-button danger-action"
+                    disabled={busyKey === `delete-announcement-${announcement.id}`}
+                    onClick={() => handleDeleteAnnouncement(announcement)}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </article>
           ))}
         </div>
       )}
     </>
   );
+}
+
+function AdminAnnouncementPanel({
+  editingAnnouncement,
+  onCancelEdit,
+  onSaved,
+}) {
+  const [form, setForm] = useState(ANNOUNCEMENT_FORM_INITIAL_STATE);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = Boolean(editingAnnouncement);
+
+  useEffect(() => {
+    if (!editingAnnouncement) {
+      setForm(ANNOUNCEMENT_FORM_INITIAL_STATE);
+      setError("");
+      return;
+    }
+
+    setForm({
+      title: editingAnnouncement.title,
+      content: editingAnnouncement.content,
+      targetType: editingAnnouncement.targetType,
+      targetRole: editingAnnouncement.targetRole || "student",
+      priority: editingAnnouncement.priority,
+      publishAt: isoToDateTimeLocal(editingAnnouncement.publishAt),
+      expiresAt: isoToDateTimeLocal(editingAnnouncement.expiresAt),
+    });
+    setError("");
+  }, [editingAnnouncement]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const buildPayload = () => ({
+    title: form.title,
+    content: form.content,
+    targetType: form.targetType,
+    targetRole: form.targetType === "role" ? form.targetRole : null,
+    priority: form.priority,
+    publishAt: dateTimeLocalToIso(form.publishAt),
+    expiresAt: dateTimeLocalToIso(form.expiresAt),
+  });
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      const response = isEditing
+        ? await api.patch(
+            `/announcements/${editingAnnouncement.id}`,
+            buildPayload(),
+          )
+        : await api.post("/announcements", buildPayload());
+
+      setForm(ANNOUNCEMENT_FORM_INITIAL_STATE);
+      onSaved(response.data.message);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <section
+      className="data-section announcement-editor"
+      aria-labelledby="announcement-form-title"
+    >
+      <div className="editor-heading">
+        <div>
+          <p className="eyebrow">Broadcast</p>
+          <h2 id="announcement-form-title">
+            {isEditing ? "Edit announcement" : "New announcement"}
+          </h2>
+        </div>
+        {isEditing && (
+          <button
+            className="ghost-button compact-button"
+            onClick={onCancelEdit}
+            type="button"
+          >
+            Cancel edit
+          </button>
+        )}
+      </div>
+      <form className="resource-form" onSubmit={handleSubmit}>
+        <div className="form-grid announcement-form-grid">
+          <label>
+            Title
+            <input
+              name="title"
+              onChange={handleChange}
+              required
+              value={form.title}
+            />
+          </label>
+          <label>
+            Priority
+            <select
+              name="priority"
+              onChange={handleChange}
+              value={form.priority}
+            >
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+          <label>
+            Target
+            <select
+              name="targetType"
+              onChange={handleChange}
+              value={form.targetType}
+            >
+              <option value="all">Everyone</option>
+              <option value="role">Role</option>
+            </select>
+          </label>
+          <label>
+            Role
+            <select
+              disabled={form.targetType !== "role"}
+              name="targetRole"
+              onChange={handleChange}
+              value={form.targetRole}
+            >
+              <option value="student">Students</option>
+              <option value="admin">Administrators</option>
+            </select>
+          </label>
+          <label>
+            Publish at
+            <input
+              name="publishAt"
+              onChange={handleChange}
+              type="datetime-local"
+              value={form.publishAt}
+            />
+          </label>
+          <label>
+            Expires at
+            <input
+              name="expiresAt"
+              onChange={handleChange}
+              type="datetime-local"
+              value={form.expiresAt}
+            />
+          </label>
+        </div>
+        <label>
+          Content
+          <textarea
+            name="content"
+            onChange={handleChange}
+            required
+            rows="5"
+            value={form.content}
+          />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <button
+          className="primary-button form-action"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          {isSubmitting
+            ? isEditing
+              ? "Updating"
+              : "Creating"
+            : isEditing
+              ? "Update announcement"
+              : "Create announcement"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function dateTimeLocalToIso(value) {
+  if (!value) {
+    return null;
+  }
+
+  return new Date(value).toISOString();
+}
+
+function isoToDateTimeLocal(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60000;
+
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function formatAnnouncementDate(value) {
+  if (!value) {
+    return "not scheduled";
+  }
+
+  return new Date(value).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getAnnouncementTargetLabel(announcement) {
+  if (announcement.targetType === "all") {
+    return "Everyone";
+  }
+
+  if (announcement.targetType === "role") {
+    return announcement.targetRole === "admin" ? "Administrators" : "Students";
+  }
+
+  if (announcement.targetStudent) {
+    return announcement.targetStudent.fullName;
+  }
+
+  return "Targeted";
+}
+
+function getAnnouncementPillClass(announcement) {
+  if (announcement.priority === "urgent") {
+    return "pill danger-pill";
+  }
+
+  if (announcement.priority === "high") {
+    return "pill warning-pill";
+  }
+
+  if (announcement.priority === "low") {
+    return "pill muted-pill";
+  }
+
+  return "pill";
 }
 
 function UsersPage() {

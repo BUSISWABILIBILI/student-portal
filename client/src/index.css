@@ -469,6 +469,10 @@ td {
   grid-template-columns: minmax(260px, 2fr) repeat(2, minmax(120px, 1fr));
 }
 
+.announcement-form-grid {
+  grid-template-columns: minmax(260px, 2fr) repeat(5, minmax(120px, 1fr));
+}
+
 .checkbox-field {
   align-content: end;
   grid-template-columns: auto 1fr;
@@ -551,6 +555,45 @@ td {
   align-items: start;
 }
 
+.announcement-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.announcement-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.announcement-heading,
+.announcement-meta,
+.announcement-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.announcement-heading {
+  justify-content: space-between;
+}
+
+.announcement-meta {
+  flex-wrap: wrap;
+  color: #5b6870;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.announcement-actions {
+  align-self: start;
+}
+
+.danger-action {
+  border-color: #efb7a9;
+  color: #913822;
+}
+
 .loader {
   width: 34px;
   height: 34px;
@@ -623,13 +666,17 @@ td {
   .stat-grid,
   .course-grid,
   .form-grid,
-  .results-form-grid {
+  .results-form-grid,
+  .announcement-form-grid,
+  .announcement-list-item {
     grid-template-columns: 1fr;
   }
 
   .card-actions,
   .editor-heading,
-  .row-actions {
+  .row-actions,
+  .announcement-heading,
+  .announcement-actions {
     flex-direction: column;
   }
 
