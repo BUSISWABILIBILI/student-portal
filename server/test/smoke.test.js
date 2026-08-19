@@ -26,6 +26,7 @@ import {
   createStudentSchema,
   listUsersSchema,
 } from "../src/validators/userValidators.js";
+import formatUser from "../src/utils/formatUser.js";
 
 const expectValid = (schema, input) => {
   const result = schema.safeParse(input);
@@ -97,6 +98,21 @@ describe("server smoke checks", () => {
       params: {},
       query: {},
     });
+
+    const formattedUser = formatUser({
+      id: 1,
+      first_name: "Demo",
+      last_name: "Student",
+      email: "student@example.com",
+      role: "student",
+      is_active: true,
+      student_profile_id: 7,
+      student_number: "STU20260001",
+      programme: "Diploma in Information Technology",
+      year_level: 2,
+    });
+
+    assert.equal(formattedUser.studentProfile.id, 7);
   });
 
   it("parses course and enrollment payloads", () => {

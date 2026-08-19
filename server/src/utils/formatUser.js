@@ -20,6 +20,7 @@ const formatUser = (user) => {
     studentProfile:
       user.role === "student"
         ? {
+            id: user.student_profile_id || null,
             studentNumber: user.student_number || null,
             dateOfBirth: formatDate(user.date_of_birth),
             gender: user.gender || null,

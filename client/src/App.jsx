@@ -55,6 +55,7 @@ const ANNOUNCEMENT_FORM_INITIAL_STATE = {
   content: "",
   targetType: "all",
   targetRole: "student",
+  targetStudentId: "",
   priority: "normal",
   publishAt: "",
   expiresAt: "",
@@ -1439,11 +1440,21 @@ function AnnouncementsPage() {
       ? "/announcements?limit=50&sortOrder=desc"
       : "/announcements/me?limit=20";
   const announcementResource = useApiResource(path, EMPTY_ANNOUNCEMENTS);
+  const studentResource = useApiResource(
+    "/users?limit=100&role=student&status=active&sortBy=lastName&sortOrder=asc",
+    EMPTY_USERS,
+    {
+      enabled: user.role === "admin",
+    },
+  );
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [notice, setNotice] = useState("");
   const [actionError, setActionError] = useState("");
   const [busyKey, setBusyKey] = useState("");
   const announcements = announcementResource.data.announcements || [];
+  const activeStudents = (studentResource.data.users || []).filter(
+    (student) => student.studentProfile?.id,
+  );
 
   const handleAnnouncementSaved = (message) => {
     setNotice(message);
@@ -1509,7 +1520,9 @@ function AnnouncementsPage() {
       <SectionHeader eyebrow="Messages" title="Announcements" />
       {user.role === "admin" && (
         <AdminAnnouncementPanel
+          activeStudents={activeStudents}
           editingAnnouncement={editingAnnouncement}
+          isLoadingStudents={studentResource.isLoading}
           onCancelEdit={() => setEditingAnnouncement(null)}
           onSaved={handleAnnouncementSaved}
         />
@@ -1606,7 +1619,9 @@ function AnnouncementsPage() {
 }
 
 function AdminAnnouncementPanel({
+  activeStudents,
   editingAnnouncement,
+  isLoadingStudents,
   onCancelEdit,
   onSaved,
 }) {
@@ -1627,6 +1642,9 @@ function AdminAnnouncementPanel({
       content: editingAnnouncement.content,
       targetType: editingAnnouncement.targetType,
       targetRole: editingAnnouncement.targetRole || "student",
+      targetStudentId: editingAnnouncement.targetStudent
+        ? String(editingAnnouncement.targetStudent.id)
+        : "",
       priority: editingAnnouncement.priority,
       publishAt: isoToDateTimeLocal(editingAnnouncement.publishAt),
       expiresAt: isoToDateTimeLocal(editingAnnouncement.expiresAt),
@@ -1648,6 +1666,8 @@ function AdminAnnouncementPanel({
     content: form.content,
     targetType: form.targetType,
     targetRole: form.targetType === "role" ? form.targetRole : null,
+    targetStudentId:
+      form.targetType === "student" ? Number(form.targetStudentId) : null,
     priority: form.priority,
     publishAt: dateTimeLocalToIso(form.publishAt),
     expiresAt: dateTimeLocalToIso(form.expiresAt),
@@ -1659,6 +1679,10 @@ function AdminAnnouncementPanel({
     setIsSubmitting(true);
 
     try {
+      if (form.targetType === "student" && !form.targetStudentId) {
+        throw new Error("Choose a student for this announcement.");
+      }
+
       const response = isEditing
         ? await api.patch(
             `/announcements/${editingAnnouncement.id}`,
@@ -1674,6 +1698,14 @@ function AdminAnnouncementPanel({
       setIsSubmitting(false);
     }
   };
+
+  const selectedStudentIsAvailable = activeStudents.some(
+    (student) => String(student.studentProfile.id) === form.targetStudentId,
+  );
+  const showEditingTargetStudent =
+    isEditing &&
+    editingAnnouncement.targetStudent &&
+    !selectedStudentIsAvailable;
 
   return (
     <section
@@ -1730,6 +1762,7 @@ function AdminAnnouncementPanel({
             >
               <option value="all">Everyone</option>
               <option value="role">Role</option>
+              <option value="student">Specific student</option>
             </select>
           </label>
           <label>
@@ -1742,6 +1775,39 @@ function AdminAnnouncementPanel({
             >
               <option value="student">Students</option>
               <option value="admin">Administrators</option>
+            </select>
+          </label>
+          <label>
+            Student
+            <select
+              disabled={form.targetType !== "student" || isLoadingStudents}
+              name="targetStudentId"
+              onChange={handleChange}
+              required={form.targetType === "student"}
+              value={form.targetStudentId}
+            >
+              <option value="">
+                {isLoadingStudents ? "Loading students" : "Choose a student"}
+              </option>
+              {showEditingTargetStudent && (
+                <option value={editingAnnouncement.targetStudent.id}>
+                  {formatAnnouncementStudentOption({
+                    fullName: editingAnnouncement.targetStudent.fullName,
+                    studentProfile: {
+                      studentNumber:
+                        editingAnnouncement.targetStudent.studentNumber,
+                    },
+                  })}
+                </option>
+              )}
+              {activeStudents.map((student) => (
+                <option
+                  key={student.studentProfile.id}
+                  value={student.studentProfile.id}
+                >
+                  {formatAnnouncementStudentOption(student)}
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -1798,6 +1864,12 @@ function dateTimeLocalToIso(value) {
   }
 
   return new Date(value).toISOString();
+}
+
+function formatAnnouncementStudentOption(student) {
+  return [student.fullName, student.studentProfile?.studentNumber]
+    .filter(Boolean)
+    .join(" - ");
 }
 
 function isoToDateTimeLocal(value) {

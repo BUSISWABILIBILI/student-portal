@@ -10,6 +10,7 @@ const userSelectColumns = `
   u.last_login_at,
   u.created_at,
   u.updated_at,
+  sp.id AS student_profile_id,
   sp.student_number,
   sp.date_of_birth,
   sp.gender,
