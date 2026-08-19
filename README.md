@@ -1,54 +1,134 @@
 # Student Portal
 
-A full-stack student management portal built with React, Node.js, Express and MySQL.
+A full-stack student management portal built with React, Vite, Node.js,
+Express, and MySQL.
 
-## Planned features
+## Current Capabilities
 
-- Student and administrator authentication
-- Role-based access control
-- Student profile management
-- Course management
-- Course registration
-- Academic results
-- GPA calculation
-- Announcements
-- Responsive dashboard
+- JWT authentication for administrators and students
+- Role-based API authorization
+- Student profile and user management endpoints
+- Course management and registration endpoints
+- Academic result capture, publication, and GPA summary logic
+- Announcement targeting by all users, role, or student
+- Admin and student dashboard endpoints
+- React portal shell with login, protected routes, role-aware navigation, and
+  starter views for dashboards, courses, results, announcements, and users
 
-## Technology stack
-
-### Frontend
-
-- React
-- Vite
-- Material UI
-- React Router
-- Axios
-
-### Backend
-
-- Node.js
-- Express
-- MySQL
-- JSON Web Tokens
-- bcrypt
-
-### Deployment
-
-- Vercel
-- Render
-- Railway
-
-## Project structure
+## Project Structure
 
 ```text
 student-portal/
-├── client/
-├── server/
-├── database/
-├── docs/
-├── .gitignore
-└── README.md
+├── client/      React + Vite frontend
+├── server/      Express API
+├── database/    MySQL schema, migrations, and seed data
+├── docs/        API notes
+└── package.json Root workflow scripts
 ```
 
-Author
-Busiswa Bili-Bili
+## Prerequisites
+
+- Node.js 20.19 or newer
+- MySQL 8 or compatible
+- npm
+
+## Environment Setup
+
+Create the server environment file:
+
+```powershell
+Copy-Item server/.env.example server/.env
+```
+
+Then update `server/.env` for your local MySQL credentials and JWT secret.
+
+Optional client environment file:
+
+```powershell
+Copy-Item client/.env.example client/.env
+```
+
+The default client API URL is `http://localhost:5000/api`.
+
+## Install Dependencies
+
+```powershell
+cd server
+npm install
+
+cd ../client
+npm install
+```
+
+## Database Setup
+
+`database/schema.sql` is the source of truth for a fresh local database. It
+drops and recreates `student_portal`, so run it only when you intend to reset
+the local database.
+
+```powershell
+mysql -u root -p < database/schema.sql
+mysql -u root -p < database/seed.sql
+```
+
+Create or refresh demo user accounts:
+
+```powershell
+npm run seed:users
+```
+
+Demo accounts:
+
+```text
+Administrator: admin@studentportal.local / Admin@123
+Student:       student@studentportal.local / Student@123
+```
+
+## Run Locally
+
+In one terminal:
+
+```powershell
+npm run server:dev
+```
+
+In another terminal:
+
+```powershell
+npm run client:dev
+```
+
+Frontend: `http://localhost:5173`
+
+API health: `http://localhost:5000/api/health`
+
+## Verification
+
+Run backend tests:
+
+```powershell
+npm run server:test
+```
+
+Run frontend lint and build:
+
+```powershell
+npm run client:lint
+npm run client:build
+```
+
+Run all checks from the repository root:
+
+```powershell
+npm run check
+```
+
+## Notes
+
+- Migrations in `database/migrations/` are for upgrading older databases. Do
+  not run them after applying `database/schema.sql`; the fresh schema already
+  contains their final state.
+- The frontend currently provides the main authenticated portal foundation.
+  Feature-specific create/edit forms are still the next product work.
+
+Author: Busiswa Bili-Bili
