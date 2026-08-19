@@ -10,6 +10,7 @@
     "server:start": "npm --prefix server run start",
     "server:test": "npm --prefix server run test",
     "seed:users": "npm --prefix server run seed:users",
-    "check": "npm run server:test && npm run client:lint && npm run client:build"
+    "e2e": "node e2e/browser-smoke.test.mjs",
+    "check": "npm run server:test && npm run client:lint && npm run client:build && npm run e2e"
   }
 }
