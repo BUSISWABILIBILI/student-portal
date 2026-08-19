@@ -1,40 +1,49 @@
 USE student_portal;
 
 INSERT INTO academic_periods (
+    name,
     academic_year,
     semester,
-    registration_open_at,
-    registration_close_at,
-    is_current
+    start_date,
+    end_date,
+    registration_start_date,
+    registration_end_date,
+    is_active
 )
 VALUES (
+    '2026 Semester 2',
     2026,
     'second',
-    '2026-07-01 08:00:00',
-    '2026-08-15 23:59:59',
+    '2026-07-01',
+    '2026-11-30',
+    '2026-07-01',
+    '2026-11-30',
     TRUE
-);
+)
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    start_date = VALUES(start_date),
+    end_date = VALUES(end_date),
+    registration_start_date = VALUES(registration_start_date),
+    registration_end_date = VALUES(registration_end_date),
+    is_active = VALUES(is_active);
 
 INSERT INTO courses (
     course_code,
     course_name,
     description,
-    credits,
     department,
-    semester,
-    year_level,
+    credit_value,
     capacity,
-    is_active,
+    is_active
 )
 VALUES
 (
     'DEV101',
     'Introduction to Software Development',
     'Introduces programming principles and problem solving.',
-    15,
     'Information Technology',
-    'first',
-    1,
+    15.00,
     120,
     TRUE
 ),
@@ -42,10 +51,8 @@ VALUES
     'DBS201',
     'Database Systems',
     'Relational database design, SQL and data management.',
-    15,
     'Information Technology',
-    'second',
-    2,
+    15.00,
     100,
     TRUE
 ),
@@ -53,10 +60,8 @@ VALUES
     'WEB301',
     'Advanced Web Development',
     'Full-stack application development using modern web technologies.',
-    20,
     'Information Technology',
-    'second',
-    3,
+    20.00,
     80,
     TRUE
 ),
@@ -64,19 +69,15 @@ VALUES
     'SEN301',
     'Software Engineering',
     'Software architecture, testing and project management.',
-    20,
     'Computer Science',
-    'year',
-    3,
+    20.00,
     80,
     TRUE
 )
 ON DUPLICATE KEY UPDATE
     course_name = VALUES(course_name),
     description = VALUES(description),
-    credits = VALUES(credits),
     department = VALUES(department),
-    semester = VALUES(semester),
-    year_level = VALUES(year_level),
+    credit_value = VALUES(credit_value),
     capacity = VALUES(capacity),
     is_active = VALUES(is_active);

@@ -15,7 +15,8 @@ const resultSelectColumns = `
   r.published_at,
   r.created_at,
   r.updated_at,
-  e.student_id,
+  u.id AS student_id,
+  sp.id AS student_profile_id,
   e.course_id,
   e.academic_period_id,
   e.status AS enrollment_status,
@@ -28,7 +29,7 @@ const resultSelectColumns = `
   c.course_code,
   c.course_name,
   c.department,
-  c.credits,
+  c.credit_value,
   ap.academic_year,
   ap.semester,
   captured.first_name AS captured_by_first_name,
@@ -40,10 +41,10 @@ const resultJoinClause = `
   FROM results AS r
   INNER JOIN enrollments AS e
     ON e.id = r.enrollment_id
+  INNER JOIN student_profiles AS sp
+    ON sp.id = e.student_id
   INNER JOIN users AS u
-    ON u.id = e.student_id
-  LEFT JOIN student_profiles AS sp
-    ON sp.user_id = u.id
+    ON u.id = sp.user_id
   INNER JOIN courses AS c
     ON c.id = e.course_id
   INNER JOIN academic_periods AS ap
@@ -68,7 +69,8 @@ export const findEnrollmentForResultById = async (
     `
       SELECT
         e.id AS enrollment_id,
-        e.student_id,
+        u.id AS student_id,
+        sp.id AS student_profile_id,
         e.course_id,
         e.academic_period_id,
         e.status AS enrollment_status,
@@ -78,14 +80,14 @@ export const findEnrollmentForResultById = async (
         sp.student_number,
         c.course_code,
         c.course_name,
-        c.credits,
+        c.credit_value,
         ap.academic_year,
         ap.semester
       FROM enrollments AS e
+      INNER JOIN student_profiles AS sp
+        ON sp.id = e.student_id
       INNER JOIN users AS u
-        ON u.id = e.student_id
-      LEFT JOIN student_profiles AS sp
-        ON sp.user_id = u.id
+        ON u.id = sp.user_id
       INNER JOIN courses AS c
         ON c.id = e.course_id
       INNER JOIN academic_periods AS ap
@@ -351,7 +353,7 @@ export const findResults = async ({
 
 export const findPublishedResultsForStudent = async (userId, filters) => {
   const conditions = [
-    "e.student_id = ?",
+    "sp.user_id = ?",
     "r.publication_status = 'published'",
   ];
 

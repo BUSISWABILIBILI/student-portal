@@ -48,7 +48,7 @@ const formatResult = (
       courseCode: result.course_code,
       courseName: result.course_name,
       department: result.department || null,
-      creditValue: Number(result.credits || 0),
+      creditValue: Number(result.credit_value || 0),
     },
     academicPeriod: {
       id: result.academic_period_id,

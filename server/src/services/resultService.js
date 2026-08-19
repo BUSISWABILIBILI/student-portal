@@ -21,7 +21,7 @@ const roundToTwoDecimals = (value) => Number(value.toFixed(2));
 
 const calculateWeightedGpa = (results) => {
   const attemptedCredits = results.reduce(
-    (total, result) => total + Number(result.credits || 0),
+    (total, result) => total + Number(result.credit_value || 0),
     0,
   );
 
@@ -31,7 +31,8 @@ const calculateWeightedGpa = (results) => {
 
   const weightedGradePoints = results.reduce(
     (total, result) =>
-      total + Number(result.grade_point || 0) * Number(result.credits || 0),
+      total +
+      Number(result.grade_point || 0) * Number(result.credit_value || 0),
     0,
   );
 
@@ -60,12 +61,12 @@ const buildAcademicSummary = (results) => {
   );
 
   const attemptedCredits = completedResults.reduce(
-    (total, result) => total + Number(result.credits || 0),
+    (total, result) => total + Number(result.credit_value || 0),
     0,
   );
 
   const earnedCredits = passedResults.reduce(
-    (total, result) => total + Number(result.credits || 0),
+    (total, result) => total + Number(result.credit_value || 0),
     0,
   );
 

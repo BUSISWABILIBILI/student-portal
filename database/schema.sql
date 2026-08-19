@@ -61,33 +61,42 @@ CREATE TABLE courses (
     course_code VARCHAR(20) NOT NULL,
     course_name VARCHAR(150) NOT NULL,
     description TEXT NULL,
-    credits TINYINT UNSIGNED NOT NULL,
     department VARCHAR(150) NOT NULL,
-    semester ENUM('first', 'second', 'year') NOT NULL,
-    year_level TINYINT UNSIGNED NOT NULL,
-    capacity SMALLINT UNSIGNED NOT NULL DEFAULT 100,
+    credit_value DECIMAL(5, 2) NOT NULL DEFAULT 12.00,
+    capacity INT UNSIGNED NOT NULL DEFAULT 50,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by INT UNSIGNED NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_courses_code (course_code),
+    KEY idx_courses_active (is_active),
 
-    CONSTRAINT chk_course_credits
-        CHECK (credits BETWEEN 1 AND 120),
+    CONSTRAINT fk_courses_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
 
-    CONSTRAINT chk_course_year_level
-        CHECK (year_level BETWEEN 1 AND 10)
+    CONSTRAINT chk_course_credit_value
+        CHECK (credit_value BETWEEN 1 AND 120),
+
+    CONSTRAINT chk_course_capacity
+        CHECK (capacity > 0)
 );
 
 CREATE TABLE academic_periods (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(120) NOT NULL,
     academic_year YEAR NOT NULL,
     semester ENUM('first', 'second', 'year') NOT NULL,
-    registration_open_at DATETIME NOT NULL,
-    registration_close_at DATETIME NOT NULL,
-    is_current BOOLEAN NOT NULL DEFAULT FALSE,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    registration_start_date DATE NULL,
+    registration_end_date DATE NULL,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
@@ -96,8 +105,15 @@ CREATE TABLE academic_periods (
         semester
     ),
 
+    CONSTRAINT chk_academic_period_dates
+        CHECK (end_date > start_date),
+
     CONSTRAINT chk_registration_dates
-        CHECK (registration_close_at > registration_open_at)
+        CHECK (
+            registration_start_date IS NULL
+            OR registration_end_date IS NULL
+            OR registration_end_date >= registration_start_date
+        )
 );
 
 CREATE TABLE student_number_sequences (
@@ -116,10 +132,11 @@ CREATE TABLE enrollments (
     academic_period_id INT UNSIGNED NOT NULL,
     status ENUM(
         'registered',
-        'completed',
-        'cancelled'
+        'cancelled',
+        'completed'
     ) NOT NULL DEFAULT 'registered',
     registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cancelled_at TIMESTAMP NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
@@ -136,7 +153,7 @@ CREATE TABLE enrollments (
 
     CONSTRAINT fk_enrollments_student
         FOREIGN KEY (student_id)
-        REFERENCES users(id)
+        REFERENCES student_profiles(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE,
 
