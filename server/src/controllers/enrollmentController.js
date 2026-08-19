@@ -1,5 +1,6 @@
 import {
   cancelStudentCourse,
+  getEnrollments,
   getStudentCourses,
   registerStudentForCourse,
 } from "../services/enrollmentService.js";
@@ -54,5 +55,14 @@ export const listMyCoursesController = async (req, res) => {
     data: {
       courses,
     },
+  });
+};
+
+export const listEnrollmentsController = async (req, res) => {
+  const result = await getEnrollments(req.validated.query);
+
+  res.status(200).json({
+    success: true,
+    data: result,
   });
 };

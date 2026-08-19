@@ -17,6 +17,7 @@ import {
   listCoursesSchema,
   registerCourseSchema,
 } from "../src/validators/courseValidators.js";
+import { listEnrollmentsSchema } from "../src/validators/enrollmentValidators.js";
 import {
   captureResultSchema,
   listResultsSchema,
@@ -127,6 +128,18 @@ describe("server smoke checks", () => {
       params: {},
       query: {},
     });
+
+    const enrollments = expectValid(listEnrollmentsSchema, {
+      body: {},
+      params: {},
+      query: {
+        resultStatus: "pending",
+        sortBy: "studentName",
+      },
+    });
+
+    assert.equal(enrollments.query.resultStatus, "pending");
+    assert.equal(enrollments.query.limit, 25);
   });
 
   it("parses result payloads", () => {

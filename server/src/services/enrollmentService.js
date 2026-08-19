@@ -13,6 +13,7 @@ import {
   cancelEnrollmentRecord,
   createEnrollment,
   findEnrollment,
+  findEnrollments,
   findStudentEnrollments,
   findStudentProfileByUserId,
   reactivateEnrollment,
@@ -49,6 +50,65 @@ const formatEnrollment = (enrollment) => ({
     academicYear: enrollment.academic_year,
   },
 });
+
+const formatAdminEnrollment = (enrollment) => ({
+  id: enrollment.id,
+  status: enrollment.status,
+  registeredAt: enrollment.registered_at,
+  cancelledAt: enrollment.cancelled_at,
+  student: {
+    id: enrollment.student_user_id,
+    profileId: enrollment.student_profile_id,
+    firstName: enrollment.student_first_name,
+    lastName: enrollment.student_last_name,
+    name: `${enrollment.student_first_name} ${enrollment.student_last_name}`,
+    email: enrollment.student_email,
+    studentNumber: enrollment.student_number,
+    programme: enrollment.programme,
+    yearLevel: enrollment.year_level,
+  },
+  course: {
+    id: enrollment.course_id,
+    courseCode: enrollment.course_code,
+    courseName: enrollment.course_name,
+    department: enrollment.department,
+    creditValue: Number(enrollment.credit_value),
+  },
+  academicPeriod: {
+    id: enrollment.academic_period_id,
+    name: enrollment.academic_period_name,
+    academicYear: enrollment.academic_year,
+    semester: enrollment.semester,
+  },
+  result: enrollment.result_id
+    ? {
+        id: enrollment.result_id,
+        publicationStatus: enrollment.result_publication_status,
+        finalMark:
+          enrollment.result_final_mark === null
+            ? null
+            : Number(enrollment.result_final_mark),
+        outcome: enrollment.result_outcome,
+      }
+    : null,
+});
+
+export const getEnrollments = async (filters) => {
+  const result = await findEnrollments(filters);
+  const totalPages = Math.ceil(result.total / filters.limit);
+
+  return {
+    enrollments: result.enrollments.map(formatAdminEnrollment),
+    pagination: {
+      page: filters.page,
+      limit: filters.limit,
+      totalItems: result.total,
+      totalPages,
+      hasPreviousPage: filters.page > 1,
+      hasNextPage: filters.page < totalPages,
+    },
+  };
+};
 
 export const registerStudentForCourse = async (
   userId,

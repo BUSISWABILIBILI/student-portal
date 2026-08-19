@@ -138,6 +138,13 @@ td {
   resize: vertical;
 }
 
+.resource-form select:disabled,
+.resource-form input:disabled,
+.resource-form textarea:disabled {
+  color: #5b6870;
+  background: #eef1f2;
+}
+
 .login-form input:focus,
 .resource-form input:focus,
 .resource-form select:focus,
@@ -423,6 +430,16 @@ td {
   color: #5b6870;
 }
 
+.warning-pill {
+  background: #fff6db;
+  color: #7a5200;
+}
+
+.danger-pill {
+  background: #fff0f0;
+  color: #9a2626;
+}
+
 .capacity-bar {
   height: 9px;
   overflow: hidden;
@@ -446,6 +463,10 @@ td {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.results-form-grid {
+  grid-template-columns: minmax(260px, 2fr) repeat(2, minmax(120px, 1fr));
 }
 
 .checkbox-field {
@@ -482,6 +503,26 @@ td {
 .hint-text {
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.editor-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.table-subtext {
+  display: block;
+  margin-top: 3px;
+  color: #5b6870;
+  font-size: 0.84rem;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .item-list {
@@ -573,17 +614,22 @@ td {
   .account-block,
   .course-card-header,
   .meta-row,
-  .card-actions {
+  .card-actions,
+  .editor-heading,
+  .row-actions {
     align-items: flex-start;
   }
 
   .stat-grid,
   .course-grid,
-  .form-grid {
+  .form-grid,
+  .results-form-grid {
     grid-template-columns: 1fr;
   }
 
-  .card-actions {
+  .card-actions,
+  .editor-heading,
+  .row-actions {
     flex-direction: column;
   }
 

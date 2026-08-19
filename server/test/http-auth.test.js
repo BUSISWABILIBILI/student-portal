@@ -81,6 +81,7 @@ describe("HTTP auth and route behavior", () => {
     const protectedPaths = [
       "/api/auth/me",
       "/api/courses",
+      "/api/enrollments",
       "/api/users",
       "/api/results",
       "/api/announcements",

@@ -31,6 +31,7 @@ const navigationItems = [
 const EMPTY_COURSES = { courses: [] };
 const EMPTY_ACADEMIC_PERIODS = { academicPeriods: [] };
 const EMPTY_ENROLLMENTS = { courses: [] };
+const EMPTY_ADMIN_ENROLLMENTS = { enrollments: [] };
 const EMPTY_RESULTS = { results: [] };
 const EMPTY_ANNOUNCEMENTS = { announcements: [] };
 const EMPTY_USERS = { users: [] };
@@ -42,6 +43,12 @@ const COURSE_FORM_INITIAL_STATE = {
   capacity: "50",
   isActive: true,
   description: "",
+};
+const RESULT_FORM_INITIAL_STATE = {
+  enrollmentId: "",
+  courseworkMark: "",
+  examinationMark: "",
+  remarks: "",
 };
 
 const formatNumber = (value) => Number(value || 0).toLocaleString();
@@ -1003,12 +1010,75 @@ function getStudentCourseStatus({ course, isRegistered, selectedPeriod }) {
 function ResultsPage() {
   const { user } = useAuth();
   const path = user.role === "admin" ? "/results?limit=20" : "/results/me";
-  const { data, error, isLoading } = useApiResource(path, EMPTY_RESULTS);
-  const results = data.results || [];
+  const resultResource = useApiResource(path, EMPTY_RESULTS);
+  const enrollmentResource = useApiResource(
+    "/enrollments?limit=100&status=registered&resultStatus=pending&sortBy=studentName&sortOrder=asc",
+    EMPTY_ADMIN_ENROLLMENTS,
+    {
+      enabled: user.role === "admin",
+    },
+  );
+  const [editingResult, setEditingResult] = useState(null);
+  const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [busyKey, setBusyKey] = useState("");
+  const results = resultResource.data.results || [];
+  const pendingEnrollments = enrollmentResource.data.enrollments || [];
+  const isLoading =
+    resultResource.isLoading ||
+    (user.role === "admin" && enrollmentResource.isLoading);
+  const error =
+    resultResource.error ||
+    (user.role === "admin" ? enrollmentResource.error : "");
+
+  const handleResultSaved = (message) => {
+    setNotice(message);
+    setActionError("");
+    setEditingResult(null);
+    resultResource.refetch();
+
+    if (user.role === "admin") {
+      enrollmentResource.refetch();
+    }
+  };
+
+  const handlePublicationChange = async (result) => {
+    const isPublished = result.publicationStatus === "published";
+
+    setNotice("");
+    setActionError("");
+    setBusyKey(`result-${result.id}`);
+
+    try {
+      const response = await api.patch(
+        `/results/${result.id}/${isPublished ? "unpublish" : "publish"}`,
+      );
+
+      setNotice(response.data.message);
+      resultResource.refetch();
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError));
+    } finally {
+      setBusyKey("");
+    }
+  };
 
   return (
     <>
       <SectionHeader eyebrow="Academic" title="Results" />
+      {user.role === "admin" && (
+        <AdminResultPanel
+          editingResult={editingResult}
+          onCancelEdit={() => setEditingResult(null)}
+          onSaved={handleResultSaved}
+          pendingEnrollments={pendingEnrollments}
+        />
+      )}
+      {user.role === "student" && resultResource.data.academicSummary && (
+        <ResultSummary summary={resultResource.data.academicSummary} />
+      )}
+      {notice && <p className="inline-success">{notice}</p>}
+      {actionError && <ErrorState message={actionError} />}
       {isLoading && <PageLoader label="Loading results" />}
       {error && <ErrorState message={error} />}
       {!isLoading && !error && results.length === 0 && (
@@ -1027,6 +1097,7 @@ function ResultsPage() {
                 <th>Final mark</th>
                 <th>Grade</th>
                 <th>Status</th>
+                {user.role === "admin" && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -1035,10 +1106,52 @@ function ResultsPage() {
                   {user.role === "admin" && (
                     <td>{result.student?.name || "Unknown student"}</td>
                   )}
-                  <td>{result.course.courseCode}</td>
-                  <td>{result.finalMark ?? "Incomplete"}</td>
+                  <td>
+                    <strong>{result.course.courseCode}</strong>
+                    <span className="table-subtext">
+                      {result.course.courseName}
+                    </span>
+                  </td>
+                  <td>{formatMark(result.finalMark)}</td>
                   <td>{result.grade || "Pending"}</td>
-                  <td>{result.publicationStatus}</td>
+                  <td>
+                    <span className={getOutcomePillClass(result)}>
+                      {result.publicationStatus === "published"
+                        ? result.outcome
+                        : "draft"}
+                    </span>
+                  </td>
+                  {user.role === "admin" && (
+                    <td>
+                      <div className="row-actions">
+                        <button
+                          className="ghost-button compact-button"
+                          disabled={Boolean(busyKey)}
+                          onClick={() => {
+                            setNotice("");
+                            setActionError("");
+                            setEditingResult(result);
+                          }}
+                          type="button"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="primary-button compact-button"
+                          disabled={
+                            busyKey === `result-${result.id}` ||
+                            result.outcome === "incomplete"
+                          }
+                          onClick={() => handlePublicationChange(result)}
+                          type="button"
+                        >
+                          {result.publicationStatus === "published"
+                            ? "Unpublish"
+                            : "Publish"}
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1047,6 +1160,251 @@ function ResultsPage() {
       )}
     </>
   );
+}
+
+function AdminResultPanel({
+  editingResult,
+  onCancelEdit,
+  onSaved,
+  pendingEnrollments,
+}) {
+  const [form, setForm] = useState(RESULT_FORM_INITIAL_STATE);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = Boolean(editingResult);
+
+  useEffect(() => {
+    if (!editingResult) {
+      setForm(RESULT_FORM_INITIAL_STATE);
+      setError("");
+      return;
+    }
+
+    setForm({
+      enrollmentId: String(editingResult.enrollmentId),
+      courseworkMark: markToInputValue(editingResult.courseworkMark),
+      examinationMark: markToInputValue(editingResult.examinationMark),
+      remarks: editingResult.remarks || "",
+    });
+    setError("");
+  }, [editingResult]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const buildPayload = () => ({
+    courseworkMark: inputMarkToPayload(form.courseworkMark),
+    examinationMark: inputMarkToPayload(form.examinationMark),
+    remarks: form.remarks || null,
+  });
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      const payload = buildPayload();
+      const response = isEditing
+        ? await api.patch(`/results/${editingResult.id}`, payload)
+        : await api.post("/results", {
+            enrollmentId: Number(form.enrollmentId),
+            ...payload,
+          });
+
+      setForm(RESULT_FORM_INITIAL_STATE);
+      onSaved(response.data.message);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="data-section result-editor" aria-labelledby="result-form-title">
+      <div className="editor-heading">
+        <div>
+          <p className="eyebrow">Assessment</p>
+          <h2 id="result-form-title">
+            {isEditing ? "Edit result" : "Capture result"}
+          </h2>
+        </div>
+        {isEditing && (
+          <button
+            className="ghost-button compact-button"
+            onClick={onCancelEdit}
+            type="button"
+          >
+            Cancel edit
+          </button>
+        )}
+      </div>
+      <form className="resource-form" onSubmit={handleSubmit}>
+        <div className="form-grid results-form-grid">
+          <label>
+            Enrollment
+            <select
+              disabled={isEditing}
+              name="enrollmentId"
+              onChange={handleChange}
+              required={!isEditing}
+              value={form.enrollmentId}
+            >
+              <option value="">
+                {pendingEnrollments.length > 0
+                  ? "Choose an enrollment"
+                  : "No pending enrollments"}
+              </option>
+              {pendingEnrollments.map((enrollment) => (
+                <option key={enrollment.id} value={enrollment.id}>
+                  {formatEnrollmentOption(enrollment)}
+                </option>
+              ))}
+              {isEditing && (
+                <option value={editingResult.enrollmentId}>
+                  {formatResultEnrollmentLabel(editingResult)}
+                </option>
+              )}
+            </select>
+          </label>
+          <label>
+            Coursework
+            <input
+              max="100"
+              min="0"
+              name="courseworkMark"
+              onChange={handleChange}
+              step="0.01"
+              type="number"
+              value={form.courseworkMark}
+            />
+          </label>
+          <label>
+            Examination
+            <input
+              max="100"
+              min="0"
+              name="examinationMark"
+              onChange={handleChange}
+              step="0.01"
+              type="number"
+              value={form.examinationMark}
+            />
+          </label>
+        </div>
+        <label>
+          Remarks
+          <textarea
+            name="remarks"
+            onChange={handleChange}
+            rows="3"
+            value={form.remarks}
+          />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <button
+          className="primary-button form-action"
+          disabled={isSubmitting || (!isEditing && !form.enrollmentId)}
+          type="submit"
+        >
+          {isSubmitting
+            ? isEditing
+              ? "Updating"
+              : "Capturing"
+            : isEditing
+              ? "Update result"
+              : "Capture result"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function ResultSummary({ summary }) {
+  return (
+    <StatGrid
+      stats={[
+        { label: "Published results", value: summary.totalPublishedResults },
+        { label: "Completed courses", value: summary.completedCourses },
+        { label: "Passed courses", value: summary.passedCourses },
+        { label: "Earned credits", value: summary.earnedCredits },
+        { label: "Average mark", value: summary.averageMark || 0 },
+        { label: "GPA", value: summary.gpa || 0 },
+      ]}
+    />
+  );
+}
+
+function formatMark(value) {
+  if (value === null || value === undefined) {
+    return "Incomplete";
+  }
+
+  return `${Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  })}%`;
+}
+
+function markToInputValue(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value);
+}
+
+function inputMarkToPayload(value) {
+  if (value === "") {
+    return null;
+  }
+
+  return Number(value);
+}
+
+function formatEnrollmentOption(enrollment) {
+  return [
+    enrollment.student.name,
+    enrollment.student.studentNumber,
+    enrollment.course.courseCode,
+    enrollment.academicPeriod.name,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
+function formatResultEnrollmentLabel(result) {
+  return [
+    result.student?.name,
+    result.student?.studentNumber,
+    result.course.courseCode,
+    result.academicPeriod.label,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
+function getOutcomePillClass(result) {
+  if (result.publicationStatus !== "published") {
+    return "pill muted-pill";
+  }
+
+  if (result.outcome === "pass") {
+    return "pill";
+  }
+
+  if (result.outcome === "fail") {
+    return "pill danger-pill";
+  }
+
+  return "pill warning-pill";
 }
 
 function AnnouncementsPage() {
