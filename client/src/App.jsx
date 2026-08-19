@@ -29,9 +29,20 @@ const navigationItems = [
 ];
 
 const EMPTY_COURSES = { courses: [] };
+const EMPTY_ACADEMIC_PERIODS = { academicPeriods: [] };
+const EMPTY_ENROLLMENTS = { courses: [] };
 const EMPTY_RESULTS = { results: [] };
 const EMPTY_ANNOUNCEMENTS = { announcements: [] };
 const EMPTY_USERS = { users: [] };
+const COURSE_FORM_INITIAL_STATE = {
+  courseCode: "",
+  courseName: "",
+  department: "",
+  creditValue: "12",
+  capacity: "50",
+  isActive: true,
+  description: "",
+};
 
 const formatNumber = (value) => Number(value || 0).toLocaleString();
 
@@ -356,7 +367,9 @@ function StatGrid({ stats }) {
   );
 }
 
-function useApiResource(path, fallbackValue) {
+function useApiResource(path, fallbackValue, options = {}) {
+  const { enabled = true } = options;
+  const [refreshIndex, setRefreshIndex] = useState(0);
   const [state, setState] = useState({
     data: fallbackValue,
     error: "",
@@ -364,14 +377,24 @@ function useApiResource(path, fallbackValue) {
   });
 
   useEffect(() => {
+    if (!enabled || !path) {
+      setState({
+        data: fallbackValue,
+        error: "",
+        isLoading: false,
+      });
+
+      return undefined;
+    }
+
     let cancelled = false;
 
     const loadResource = async () => {
-      setState((current) => ({
-        ...current,
+      setState({
+        data: fallbackValue,
         error: "",
         isLoading: true,
-      }));
+      });
 
       try {
         const response = await api.get(path);
@@ -399,9 +422,16 @@ function useApiResource(path, fallbackValue) {
     return () => {
       cancelled = true;
     };
-  }, [fallbackValue, path]);
+  }, [enabled, fallbackValue, path, refreshIndex]);
 
-  return state;
+  const refetch = useCallback(() => {
+    setRefreshIndex((current) => current + 1);
+  }, []);
+
+  return {
+    ...state,
+    refetch,
+  };
 }
 
 function DashboardPage() {
@@ -528,25 +558,216 @@ function RecentResults({ results }) {
 }
 
 function CoursesPage() {
-  const { data, error, isLoading } = useApiResource(
-    "/courses?limit=20&sortBy=courseCode",
+  const { user } = useAuth();
+  const [selectedAcademicPeriodId, setSelectedAcademicPeriodId] = useState("");
+  const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [busyKey, setBusyKey] = useState("");
+  const courseResource = useApiResource(
+    "/courses?limit=50&sortBy=courseCode",
     EMPTY_COURSES,
   );
+  const periodResource = useApiResource(
+    "/academic-periods/active",
+    EMPTY_ACADEMIC_PERIODS,
+    {
+      enabled: user.role === "student",
+    },
+  );
+  const academicPeriods = useMemo(
+    () => periodResource.data.academicPeriods || [],
+    [periodResource.data],
+  );
+  const selectedPeriod = academicPeriods.find(
+    (period) => String(period.id) === selectedAcademicPeriodId,
+  );
+  const enrollmentResource = useApiResource(
+    selectedAcademicPeriodId
+      ? `/enrollments/me?academicPeriodId=${selectedAcademicPeriodId}`
+      : null,
+    EMPTY_ENROLLMENTS,
+    {
+      enabled: user.role === "student" && Boolean(selectedAcademicPeriodId),
+    },
+  );
+  const enrollments = enrollmentResource.data.courses || [];
+  const registeredCourseIds = new Set(
+    enrollments
+      .filter((enrollment) => enrollment.status === "registered")
+      .map((enrollment) => enrollment.course.id),
+  );
+  const courses = courseResource.data.courses || [];
+  const isEnrollmentLoading =
+    user.role === "student" &&
+    Boolean(selectedAcademicPeriodId) &&
+    enrollmentResource.isLoading;
+  const isLoading =
+    courseResource.isLoading ||
+    (user.role === "student" && periodResource.isLoading) ||
+    isEnrollmentLoading;
+  const error =
+    courseResource.error ||
+    (user.role === "student" ? periodResource.error : "");
+
+  useEffect(() => {
+    if (user.role !== "student" || academicPeriods.length === 0) {
+      return;
+    }
+
+    const selectedPeriodExists = academicPeriods.some(
+      (period) => String(period.id) === selectedAcademicPeriodId,
+    );
+
+    if (!selectedAcademicPeriodId || !selectedPeriodExists) {
+      setSelectedAcademicPeriodId(String(academicPeriods[0].id));
+    }
+  }, [academicPeriods, selectedAcademicPeriodId, user.role]);
+
+  const refreshCourseWorkflow = () => {
+    courseResource.refetch();
+
+    if (user.role === "student" && selectedAcademicPeriodId) {
+      enrollmentResource.refetch();
+    }
+  };
+
+  const handleToggleCourseStatus = async (course) => {
+    setNotice("");
+    setActionError("");
+    setBusyKey(`course-${course.id}`);
+
+    try {
+      const response = await api.patch(`/courses/${course.id}`, {
+        isActive: !course.isActive,
+      });
+
+      setNotice(response.data.message);
+      courseResource.refetch();
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError));
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const handleRegisterCourse = async (course) => {
+    if (!selectedAcademicPeriodId) {
+      setActionError("Choose an active academic period before registering.");
+      return;
+    }
+
+    setNotice("");
+    setActionError("");
+    setBusyKey(`register-${course.id}`);
+
+    try {
+      const response = await api.post("/enrollments", {
+        courseId: course.id,
+        academicPeriodId: Number(selectedAcademicPeriodId),
+      });
+
+      setNotice(response.data.message);
+      refreshCourseWorkflow();
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError));
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const handleCancelRegistration = async (course) => {
+    if (!selectedAcademicPeriodId) {
+      setActionError("Choose an active academic period before cancelling.");
+      return;
+    }
+
+    setNotice("");
+    setActionError("");
+    setBusyKey(`cancel-${course.id}`);
+
+    try {
+      const response = await api.patch(
+        `/enrollments/${course.id}/cancel`,
+        {},
+        {
+          params: {
+            academicPeriodId: Number(selectedAcademicPeriodId),
+          },
+        },
+      );
+
+      setNotice(response.data.message);
+      refreshCourseWorkflow();
+    } catch (requestError) {
+      setActionError(getErrorMessage(requestError));
+    } finally {
+      setBusyKey("");
+    }
+  };
 
   return (
     <>
-      <SectionHeader eyebrow="Academic" title="Courses" />
+      <SectionHeader eyebrow="Academic" title="Courses">
+        {user.role === "student" && academicPeriods.length > 0 && (
+          <label className="compact-field">
+            Academic period
+            <select
+              onChange={(event) => {
+                setNotice("");
+                setActionError("");
+                setSelectedAcademicPeriodId(event.target.value);
+              }}
+              value={selectedAcademicPeriodId}
+            >
+              {academicPeriods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </SectionHeader>
+      {user.role === "admin" && (
+        <AdminCoursePanel onCreated={courseResource.refetch} />
+      )}
+      {notice && <p className="inline-success">{notice}</p>}
+      {actionError && <ErrorState message={actionError} />}
       {isLoading && <PageLoader label="Loading courses" />}
       {error && <ErrorState message={error} />}
-      {!isLoading && !error && data.courses.length === 0 && (
+      {!isLoading &&
+        !error &&
+        user.role === "student" &&
+        academicPeriods.length === 0 && (
+          <EmptyState
+            title="No active academic period"
+            message="Course registration will open when an active academic period is configured."
+          />
+        )}
+      {!isLoading &&
+        !error &&
+        courses.length === 0 &&
+        (user.role !== "student" || academicPeriods.length > 0) && (
         <EmptyState
           title="No courses found"
           message="Courses added by administrators will appear here."
         />
       )}
-      {!isLoading && !error && data.courses.length > 0 && (
+      {!isLoading && !error && courses.length > 0 && (
         <div className="course-grid">
-          {data.courses.map((course) => (
+          {courses.map((course) => {
+            const isRegistered = registeredCourseIds.has(course.id);
+            const isRegistrationBusy = [
+              `register-${course.id}`,
+              `cancel-${course.id}`,
+            ].includes(busyKey);
+            const statusLabel = getStudentCourseStatus({
+              course,
+              isRegistered,
+              selectedPeriod,
+            });
+
+            return (
             <article className="course-card" key={course.id}>
               <div className="course-card-header">
                 <span className="course-code">{course.courseCode}</span>
@@ -575,12 +796,208 @@ function CoursesPage() {
                 <span>{course.enrolledCount} enrolled</span>
                 <span>{course.availablePlaces} places open</span>
               </div>
+              {user.role === "admin" && (
+                <div className="card-actions">
+                  <button
+                    className="ghost-button compact-button"
+                    disabled={busyKey === `course-${course.id}`}
+                    onClick={() => handleToggleCourseStatus(course)}
+                    type="button"
+                  >
+                    {course.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              )}
+              {user.role === "student" && (
+                <div className="card-actions">
+                  <span className="hint-text">{statusLabel}</span>
+                  {isRegistered ? (
+                    <button
+                      className="ghost-button compact-button"
+                      disabled={
+                        isRegistrationBusy ||
+                        !selectedPeriod?.registrationOpen
+                      }
+                      onClick={() => handleCancelRegistration(course)}
+                      type="button"
+                    >
+                      {busyKey === `cancel-${course.id}`
+                        ? "Cancelling"
+                        : "Cancel registration"}
+                    </button>
+                  ) : (
+                    <button
+                      className="primary-button compact-button"
+                      disabled={
+                        isRegistrationBusy ||
+                        !selectedPeriod?.registrationOpen ||
+                        course.isFull
+                      }
+                      onClick={() => handleRegisterCourse(course)}
+                      type="button"
+                    >
+                      {busyKey === `register-${course.id}`
+                        ? "Registering"
+                        : "Register"}
+                    </button>
+                  )}
+                </div>
+              )}
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
     </>
   );
+}
+
+function AdminCoursePanel({ onCreated }) {
+  const [form, setForm] = useState(COURSE_FORM_INITIAL_STATE);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (event) => {
+    const { checked, name, type, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await api.post("/courses", {
+        courseCode: form.courseCode,
+        courseName: form.courseName,
+        department: form.department,
+        creditValue: Number(form.creditValue),
+        capacity: Number(form.capacity),
+        isActive: form.isActive,
+        description: form.description || null,
+      });
+
+      setForm(COURSE_FORM_INITIAL_STATE);
+      setMessage(response.data.message);
+      onCreated();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="data-section course-editor" aria-labelledby="course-form-title">
+      <div>
+        <p className="eyebrow">Course setup</p>
+        <h2 id="course-form-title">New course</h2>
+      </div>
+      <form className="resource-form" onSubmit={handleSubmit}>
+        <div className="form-grid">
+          <label>
+            Code
+            <input
+              name="courseCode"
+              onChange={handleChange}
+              required
+              value={form.courseCode}
+            />
+          </label>
+          <label>
+            Name
+            <input
+              name="courseName"
+              onChange={handleChange}
+              required
+              value={form.courseName}
+            />
+          </label>
+          <label>
+            Department
+            <input
+              name="department"
+              onChange={handleChange}
+              required
+              value={form.department}
+            />
+          </label>
+          <label>
+            Credits
+            <input
+              min="1"
+              name="creditValue"
+              onChange={handleChange}
+              required
+              type="number"
+              value={form.creditValue}
+            />
+          </label>
+          <label>
+            Capacity
+            <input
+              min="1"
+              name="capacity"
+              onChange={handleChange}
+              required
+              type="number"
+              value={form.capacity}
+            />
+          </label>
+          <label className="checkbox-field">
+            <input
+              checked={form.isActive}
+              name="isActive"
+              onChange={handleChange}
+              type="checkbox"
+            />
+            Active
+          </label>
+        </div>
+        <label>
+          Description
+          <textarea
+            name="description"
+            onChange={handleChange}
+            rows="3"
+            value={form.description}
+          />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        {message && <p className="inline-success">{message}</p>}
+        <button className="primary-button form-action" disabled={isSubmitting} type="submit">
+          {isSubmitting ? "Creating" : "Create course"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function getStudentCourseStatus({ course, isRegistered, selectedPeriod }) {
+  if (!selectedPeriod) {
+    return "No active period";
+  }
+
+  if (isRegistered) {
+    return `Registered for ${selectedPeriod.name}`;
+  }
+
+  if (!selectedPeriod.registrationOpen) {
+    return "Registration closed";
+  }
+
+  if (course.isFull) {
+    return "Course full";
+  }
+
+  return "Available";
 }
 
 function ResultsPage() {

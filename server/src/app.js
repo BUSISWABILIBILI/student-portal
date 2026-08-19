@@ -13,6 +13,7 @@ import enrollmentRoutes from "./routes/enrollmentRoutes.js";
 import resultRoutes from "./routes/resultRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import academicPeriodRoutes from "./routes/academicPeriodRoutes.js";
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/academic-periods", academicPeriodRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

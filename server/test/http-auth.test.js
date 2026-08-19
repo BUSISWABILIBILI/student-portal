@@ -85,6 +85,7 @@ describe("HTTP auth and route behavior", () => {
       "/api/results",
       "/api/announcements",
       "/api/dashboard",
+      "/api/academic-periods/active",
     ];
 
     for (const path of protectedPaths) {
