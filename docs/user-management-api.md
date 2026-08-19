@@ -4,33 +4,50 @@ Base URL:
 
 ```text
 http://localhost:5000/api
+```
 
-All endpoints require an administrator access token.
+All endpoints require an administrator access token:
 
-Authentication header
+```http
 Authorization: Bearer <administrator-token>
-List users
+```
+
+## List Users
+
+```http
 GET /users
+```
 
 Supported query parameters:
 
-Parameter	Description
-page	Current page
-limit	Results per page
-search	Name, email, student number or programme
-role	admin or student
-status	active or inactive
-sortBy	Sort field
-sortOrder	asc or desc
+| Parameter | Description |
+| --- | --- |
+| `page` | Current page, defaults to `1` |
+| `limit` | Results per page, defaults to `10`, maximum `100` |
+| `search` | Name, email, student number, or programme search |
+| `role` | `admin` or `student` |
+| `status` | `active` or `inactive` |
+| `sortBy` | `createdAt`, `firstName`, `lastName`, `email`, or `lastLoginAt` |
+| `sortOrder` | `asc` or `desc` |
 
 Example:
 
+```http
 GET /users?page=1&limit=10&role=student&status=active
-Create student
+```
+
+Student user responses include `studentProfile.id`, which is the profile ID
+used by student-targeted announcements.
+
+## Create Student
+
+```http
 POST /users/students
+```
 
-Example request:
+Request:
 
+```json
 {
   "firstName": "Ayanda",
   "lastName": "Mthembu",
@@ -40,17 +57,58 @@ Example request:
   "yearLevel": 1,
   "admissionDate": "2026-02-02"
 }
-Get user
+```
+
+The API generates a student number from the admission year and the next
+sequence value.
+
+## Get User
+
+```http
 GET /users/:userId
-Update account
+```
+
+## Update Account
+
+```http
 PATCH /users/:userId
-Update student profile
-PATCH /users/:userId/student-profile
-Activate or deactivate account
-PATCH /users/:userId/status
+```
 
 Request:
 
+```json
+{
+  "firstName": "Ayanda",
+  "lastName": "Mthembu",
+  "email": "ayanda.mthembu@studentportal.local"
+}
+```
+
+## Update Student Profile
+
+```http
+PATCH /users/:userId/student-profile
+```
+
+Request:
+
+```json
+{
+  "programme": "Bachelor of Information Technology",
+  "yearLevel": 2,
+  "phoneNumber": "+27123456789"
+}
+```
+
+## Activate Or Deactivate Account
+
+```http
+PATCH /users/:userId/status
+```
+
+Request:
+
+```json
 {
   "isActive": false
 }

@@ -12,8 +12,9 @@ Express, and MySQL.
 - Academic result capture, publication, and GPA summary logic
 - Announcement targeting by all users, role, or student
 - Admin and student dashboard endpoints
-- React portal shell with login, protected routes, role-aware navigation, and
-  starter views for dashboards, courses, results, announcements, and users
+- React portal with login, protected routes, role-aware navigation, and
+  workflow screens for dashboards, courses, registrations, results,
+  announcements, and users
 
 ## Project Structure
 
@@ -123,12 +124,19 @@ Run all checks from the repository root:
 npm run check
 ```
 
+## API Documentation
+
+- [Authentication](docs/authentication-api.md)
+- [User management](docs/user-management-api.md)
+- [Courses and enrollments](docs/courses-and-enrollments-api.md)
+- [Academic results](docs/results-api.md)
+- [Announcements](docs/announcements-api.md)
+- [Project readiness](docs/project-readiness.md)
+
 ## Notes
 
 - Migrations in `database/migrations/` are for upgrading older databases. Do
   not run them after applying `database/schema.sql`; the fresh schema already
   contains their final state.
-- The frontend currently provides the main authenticated portal foundation.
-  Feature-specific create/edit forms are still the next product work.
 
 Author: Busiswa Bili-Bili
