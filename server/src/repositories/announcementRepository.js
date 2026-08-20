@@ -314,7 +314,6 @@ export const findAnnouncements = async ({
 };
 
 export const findVisibleAnnouncements = async ({
-  userId,
   role,
   studentProfileId,
   limit,

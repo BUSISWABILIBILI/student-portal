@@ -24,7 +24,7 @@ const handleDatabaseError = (error) => {
   }
 };
 
-const errorHandler = (error, req, res, next) => {
+const errorHandler = (error, req, res, _next) => {
   const databaseError = handleDatabaseError(error);
 
   const statusCode = databaseError?.statusCode || error.statusCode || 500;

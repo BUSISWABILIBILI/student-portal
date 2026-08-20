@@ -61,6 +61,24 @@ const demoCourse = {
   isActive: true,
 };
 
+let nextAnnouncementId = 2;
+
+const announcements = [
+  {
+    id: 1,
+    title: "Registration notice",
+    content: "Course registration is open.",
+    targetType: "all",
+    targetRole: null,
+    targetStudent: null,
+    priority: "normal",
+    publicationStatus: "published",
+    publishAt: new Date().toISOString(),
+    expiresAt: null,
+    createdBy: { fullName: "Portal Administrator" },
+  },
+];
+
 const sendJson = (response, status, body) => {
   response.writeHead(status, {
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
@@ -319,25 +337,156 @@ const startMockApi = () =>
         return;
       }
 
-      if (route === "GET /api/announcements" || route === "GET /api/announcements/me") {
+      if (route === "GET /api/announcements") {
         sendJson(response, 200, {
           success: true,
           data: {
-            announcements: [
-              {
-                id: 1,
-                title: "Registration notice",
-                content: "Course registration is open.",
-                targetType: "all",
-                targetRole: null,
-                priority: "normal",
-                publicationStatus: "published",
-                publishAt: new Date().toISOString(),
-                expiresAt: null,
-                createdBy: { fullName: "Portal Administrator" },
-              },
-            ],
+            announcements,
+            pagination: {
+              page: 1,
+              limit: 50,
+              totalItems: announcements.length,
+              totalPages: 1,
+            },
           },
+        });
+        return;
+      }
+
+      if (route === "GET /api/announcements/me") {
+        sendJson(response, 200, {
+          success: true,
+          data: {
+            announcements: announcements.filter(
+              (announcement) => announcement.publicationStatus === "published",
+            ),
+          },
+        });
+        return;
+      }
+
+      if (route === "POST /api/announcements") {
+        const body = await readBody(request);
+        const announcement = {
+          id: nextAnnouncementId,
+          title: body.title,
+          content: body.content,
+          targetType: body.targetType,
+          targetRole: body.targetType === "role" ? body.targetRole : null,
+          targetStudent:
+            body.targetType === "student"
+              ? {
+                  id: body.targetStudentId,
+                  fullName: "Demo Student",
+                  studentNumber: "STU20260001",
+                }
+              : null,
+          priority: body.priority || "normal",
+          publicationStatus: "draft",
+          publishAt: body.publishAt,
+          expiresAt: body.expiresAt,
+          createdBy: { fullName: "Portal Administrator" },
+        };
+
+        nextAnnouncementId += 1;
+        announcements.unshift(announcement);
+
+        sendJson(response, 201, {
+          success: true,
+          message: "Announcement created successfully.",
+          data: { announcement },
+        });
+        return;
+      }
+
+      const announcementRouteMatch = url.pathname.match(
+        /^\/api\/announcements\/(\d+)(?:\/(publish|unpublish))?$/,
+      );
+
+      if (announcementRouteMatch && request.method === "PATCH") {
+        const [, rawAnnouncementId, action] = announcementRouteMatch;
+        const announcement = announcements.find(
+          (item) => item.id === Number(rawAnnouncementId),
+        );
+
+        if (!announcement) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Announcement not found.",
+          });
+          return;
+        }
+
+        if (action === "publish") {
+          announcement.publicationStatus = "published";
+          announcement.publishAt ||= new Date().toISOString();
+
+          sendJson(response, 200, {
+            success: true,
+            message: "Announcement published successfully.",
+            data: { announcement },
+          });
+          return;
+        }
+
+        if (action === "unpublish") {
+          announcement.publicationStatus = "draft";
+
+          sendJson(response, 200, {
+            success: true,
+            message: "Announcement returned to draft.",
+            data: { announcement },
+          });
+          return;
+        }
+
+        const body = await readBody(request);
+
+        announcement.title = body.title;
+        announcement.content = body.content;
+        announcement.targetType = body.targetType;
+        announcement.targetRole =
+          body.targetType === "role" ? body.targetRole : null;
+        announcement.targetStudent =
+          body.targetType === "student"
+            ? {
+                id: body.targetStudentId,
+                fullName: "Demo Student",
+                studentNumber: "STU20260001",
+              }
+            : null;
+        announcement.priority = body.priority || "normal";
+        announcement.publishAt = body.publishAt;
+        announcement.expiresAt = body.expiresAt;
+        announcement.publicationStatus = "draft";
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Announcement updated successfully.",
+          data: { announcement },
+        });
+        return;
+      }
+
+      if (announcementRouteMatch && request.method === "DELETE") {
+        const [, rawAnnouncementId] = announcementRouteMatch;
+        const index = announcements.findIndex(
+          (item) => item.id === Number(rawAnnouncementId),
+        );
+
+        if (index === -1) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Announcement not found.",
+          });
+          return;
+        }
+
+        announcements.splice(index, 1);
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Announcement deleted successfully.",
         });
         return;
       }
@@ -641,6 +790,21 @@ const fillField = async (page, name, value) => {
   })()`);
 };
 
+const selectField = async (page, name, value) => {
+  await page.evaluate(`(() => {
+    const element = document.querySelector('[name="${name}"]');
+
+    if (!element) {
+      throw new Error("Could not find field: ${name}");
+    }
+
+    element.value = ${JSON.stringify(value)};
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  })()`);
+};
+
 const expectText = async (page, text) => {
   await page.waitFor(
     `document.body.innerText.toLowerCase().includes(${JSON.stringify(
@@ -658,6 +822,15 @@ const expectNoText = async (page, text) => {
   );
 
   assert(!hasText, `Unexpected page text: ${text}`);
+};
+
+const waitForNoText = async (page, text) => {
+  await page.waitFor(
+    `!document.body.innerText.toLowerCase().includes(${JSON.stringify(
+      text.toLowerCase(),
+    )})`,
+    `Expected page text to disappear: ${text}`,
+  );
 };
 
 const signIn = async (page, email, password) => {
@@ -714,6 +887,30 @@ const run = async () => {
     await expectText(page, "Capture result");
     await clickByText(page, "Announcements");
     await expectText(page, "New announcement");
+    await fillField(page, "title", "E2E notice");
+    await fillField(page, "content", "Created by the browser smoke test.");
+    await selectField(page, "targetType", "role");
+    await selectField(page, "targetRole", "student");
+    await clickByText(page, "Create announcement");
+    await expectText(page, "Announcement created successfully.");
+    await expectText(page, "E2E notice");
+    await expectText(page, "Draft");
+    await clickByText(page, "Publish");
+    await expectText(page, "Announcement published successfully.");
+    await expectText(page, "Published");
+    await clickByText(page, "Edit");
+    await fillField(page, "title", "E2E updated notice");
+    await fillField(page, "content", "Updated by the browser smoke test.");
+    await clickByText(page, "Update announcement");
+    await expectText(page, "Announcement updated successfully.");
+    await expectText(page, "E2E updated notice");
+    await expectText(page, "Draft");
+    await clickByText(page, "Publish");
+    await expectText(page, "Announcement published successfully.");
+    await page.evaluate("window.confirm = () => true");
+    await clickByText(page, "Delete");
+    await expectText(page, "Announcement deleted successfully.");
+    await waitForNoText(page, "E2E updated notice");
     await clickByText(page, "Users");
     await expectText(page, "New student");
 

@@ -26,13 +26,15 @@ npm run e2e
 The root `npm run check` script runs those checks in sequence.
 
 `npm run e2e` starts the frontend and a mock API on isolated local ports,
-launches a headless Chrome or Edge browser, and verifies the core admin and
-student portal navigation. Backend behavior remains covered by the server smoke
-tests.
+launches a headless Chrome or Edge browser, verifies the core admin and student
+portal navigation, and exercises the administrator announcement
+create/edit/publish/delete flow. Backend behavior remains covered by the server
+smoke tests.
 
 ## Remaining Production Work
 
-- Expand browser-level end-to-end tests to cover create/edit/publish actions.
+- Expand browser-level end-to-end tests to cover course, result, and user
+  management write actions.
 - Add a migration runner or deployment procedure for non-local databases.
 - Add password reset and password change flows.
 - Add production environment documentation for secrets, CORS origins, and MySQL
