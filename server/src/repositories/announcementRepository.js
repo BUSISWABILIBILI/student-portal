@@ -184,7 +184,7 @@ export const publishAnnouncementRecord = async (
         UPDATE announcements
         SET
           publication_status = 'published',
-          publish_at = ?
+          publish_at = COALESCE(?, CURRENT_TIMESTAMP)
         WHERE id = ?
       `,
     [publishAt, announcementId],
@@ -272,7 +272,9 @@ export const findAnnouncements = async ({
 
   const direction = sortOrder === "asc" ? "ASC" : "DESC";
 
-  const offset = (page - 1) * limit;
+  const safeLimit = Number(limit);
+
+  const safeOffset = (Number(page) - 1) * safeLimit;
 
   const [rows] = await pool.execute(
     `
@@ -291,9 +293,9 @@ export const findAnnouncements = async ({
           ${whereClause}
           ORDER BY
             a.created_at ${direction}
-          LIMIT ? OFFSET ?
+          LIMIT ${safeLimit} OFFSET ${safeOffset}
         `,
-    [...values, limit, offset],
+    values,
   );
 
   const [countRows] = await pool.execute(
@@ -358,6 +360,8 @@ export const findVisibleAnnouncements = async ({
     values.push(priority);
   }
 
+  const safeLimit = Number(limit);
+
   const [rows] = await pool.execute(
     `
           SELECT
@@ -385,9 +389,9 @@ export const findVisibleAnnouncements = async ({
               a.publish_at,
               a.created_at
             ) DESC
-          LIMIT ?
+          LIMIT ${safeLimit}
         `,
-    [...values, limit],
+    values,
   );
 
   return rows;

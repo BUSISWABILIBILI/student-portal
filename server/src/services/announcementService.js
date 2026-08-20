@@ -180,9 +180,7 @@ export const publishAnnouncement = async (
     throw new AppError("An expired announcement cannot be published.", 400);
   }
 
-  const publishAt = existing.publish_at
-    ? new Date(existing.publish_at)
-    : new Date();
+  const publishAt = existing.publish_at ? new Date(existing.publish_at) : null;
 
   const announcement = await publishAnnouncementRecord(
     announcementId,

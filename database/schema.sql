@@ -61,8 +61,8 @@ CREATE TABLE courses (
     course_code VARCHAR(20) NOT NULL,
     course_name VARCHAR(150) NOT NULL,
     description TEXT NULL,
-    department VARCHAR(150) NOT NULL,
     credit_value DECIMAL(5, 2) NOT NULL DEFAULT 12.00,
+    department VARCHAR(150) NOT NULL,
     capacity INT UNSIGNED NOT NULL DEFAULT 50,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_by INT UNSIGNED NULL,
@@ -150,6 +150,7 @@ CREATE TABLE enrollments (
 
     KEY idx_enrollments_student (student_id),
     KEY idx_enrollments_course (course_id),
+    KEY idx_enrollments_status (status),
 
     CONSTRAINT fk_enrollments_student
         FOREIGN KEY (student_id)

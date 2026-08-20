@@ -175,7 +175,7 @@ export const updateAnnouncementSchema = z.object({
 });
 
 export const announcementIdSchema = z.object({
-  body: z.object({}),
+  body: z.object({}).default({}),
 
   params: z
     .object({
@@ -187,7 +187,7 @@ export const announcementIdSchema = z.object({
 });
 
 export const listAnnouncementsSchema = z.object({
-  body: z.object({}),
+  body: z.object({}).default({}),
   params: z.object({}),
 
   query: z
@@ -210,7 +210,7 @@ export const listAnnouncementsSchema = z.object({
 });
 
 export const myAnnouncementsSchema = z.object({
-  body: z.object({}),
+  body: z.object({}).default({}),
   params: z.object({}),
 
   query: z
