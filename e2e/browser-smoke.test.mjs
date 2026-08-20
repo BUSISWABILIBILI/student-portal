@@ -11,6 +11,19 @@ const webPort = Number(process.env.E2E_WEB_PORT || 5175);
 const apiUrl = `http://127.0.0.1:${apiPort}`;
 const webUrl = `http://127.0.0.1:${webPort}`;
 const timeoutMs = 30000;
+const debugE2e = process.env.E2E_DEBUG === "1";
+
+const debug = (...messages) => {
+  if (debugE2e) {
+    console.log("[e2e]", ...messages);
+  }
+};
+
+const escapeGithubCommandValue = (value) =>
+  String(value)
+    .replaceAll("%", "%25")
+    .replaceAll("\r", "%0D")
+    .replaceAll("\n", "%0A");
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -1152,7 +1165,12 @@ const startProcess = ({ command, args, cwd, env, readyUrl }) =>
     };
 
     const appendOutput = (chunk) => {
-      output += chunk.toString();
+      const text = chunk.toString();
+      output += text;
+
+      if (debugE2e) {
+        process.stderr.write(text);
+      }
     };
 
     child.stdout.on("data", appendOutput);
@@ -1168,7 +1186,13 @@ const startProcess = ({ command, args, cwd, env, readyUrl }) =>
 
     waitForHttp(readyUrl)
       .then(() => finish(null, child))
-      .catch((error) => finish(error));
+      .catch((error) =>
+        finish(
+          new Error(
+            `${error.message}\n\n${command} output:\n${output || "(no output)"}`,
+          ),
+        ),
+      );
   });
 
 const stopProcess = async (child) => {
@@ -1286,9 +1310,14 @@ const launchBrowser = async (url) => {
     "Chrome or Edge was not found. Set E2E_BROWSER_PATH to a Chromium browser.",
   );
 
+  debug("Using browser executable:", executablePath);
+
   const userDataDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "student-portal-e2e-"),
   );
+  let browserOutput = "";
+  let browserExited = false;
+  let browserExitCode = null;
   const browser = spawn(
     executablePath,
     [
@@ -1307,11 +1336,34 @@ const launchBrowser = async (url) => {
     },
   );
 
+  browser.stderr.on("data", (chunk) => {
+    const text = chunk.toString();
+    browserOutput += text;
+
+    if (debugE2e) {
+      process.stderr.write(text);
+    }
+  });
+  browser.once("exit", (code) => {
+    browserExited = true;
+    browserExitCode = code;
+  });
+
   const portFile = path.join(userDataDir, "DevToolsActivePort");
   const startedAt = Date.now();
   let portText = "";
 
   while (Date.now() - startedAt < timeoutMs && !portText) {
+    if (browserExited) {
+      throw new Error(
+        [
+          `Browser exited before opening a debug port with code ${browserExitCode}.`,
+          "Browser stderr:",
+          browserOutput || "(no output)",
+        ].join("\n"),
+      );
+    }
+
     if (fs.existsSync(portFile)) {
       try {
         portText = fs.readFileSync(portFile, "utf8").trim();
@@ -1325,7 +1377,14 @@ const launchBrowser = async (url) => {
     await delay(100);
   }
 
-  assert(portText, "Timed out waiting for browser debug port.");
+  assert(
+    portText,
+    [
+      "Timed out waiting for browser debug port.",
+      "Browser stderr:",
+      browserOutput || "(no output)",
+    ].join("\n"),
+  );
 
   const [port] = portText.split(/\r?\n/);
   const targetResponse = await fetch(
@@ -1334,7 +1393,12 @@ const launchBrowser = async (url) => {
       method: "PUT",
     },
   );
+  assert(
+    targetResponse.ok,
+    `Browser target creation failed with status ${targetResponse.status}.`,
+  );
   const target = await targetResponse.json();
+  assert(target.webSocketDebuggerUrl, "Browser target did not include a WebSocket URL.");
   const page = new CdpPage(target.webSocketDebuggerUrl);
 
   await page.connect();
@@ -1523,11 +1587,24 @@ const closeServer = (server) =>
   });
 
 const run = async () => {
+  debug("Root directory:", rootDir);
+  debug("Frontend directory:", clientDir);
+  assert(fs.existsSync(clientDir), `Frontend directory was not found: ${clientDir}`);
+
+  const viteBinPath = path.join(
+    clientDir,
+    "node_modules",
+    "vite",
+    "bin",
+    "vite.js",
+  );
+  assert(fs.existsSync(viteBinPath), `Vite binary was not found: ${viteBinPath}`);
+
   const api = await startMockApi();
   const web = await startProcess({
     command: process.execPath,
     args: [
-      path.join(clientDir, "node_modules", "vite", "bin", "vite.js"),
+      viteBinPath,
       "--host",
       "127.0.0.1",
       "--port",
@@ -1692,6 +1769,16 @@ const run = async () => {
 };
 
 run().catch((error) => {
-  console.error(error.message);
+  const message = error?.stack || error?.message || String(error);
+
+  if (process.env.GITHUB_ACTIONS) {
+    console.error(
+      `::error title=Browser smoke test failed::${escapeGithubCommandValue(
+        message,
+      )}`,
+    );
+  }
+
+  console.error(message);
   process.exit(1);
 });

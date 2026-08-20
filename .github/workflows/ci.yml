@@ -64,4 +64,5 @@ jobs:
       - name: Run browser smoke test
         env:
           E2E_BROWSER_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+          E2E_DEBUG: "1"
         run: npm run e2e
