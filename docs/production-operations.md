@@ -6,15 +6,15 @@ the Student Portal outside local development.
 ## Runtime Environments
 
 Use separate environments for development, staging, and production. Each
-environment should have its own MySQL database, JWT secret, server environment,
-and client build configuration.
+environment should have its own MySQL database, JWT secret, backend
+environment, and frontend build configuration.
 
-Do not commit real `.env` files. Use `server/.env.example` and
-`client/.env.example` only as templates.
+Do not commit real `.env` files. Use `backend/.env.example` and
+`frontend/.env.example` only as templates.
 
-## Server Environment
+## Backend Environment
 
-Required server variables:
+Required backend variables:
 
 | Variable | Purpose |
 | --- | --- |
@@ -50,16 +50,16 @@ Generate `JWT_SECRET` with a cryptographically strong random value and store it
 in the deployment platform's secret manager. Do not reuse local or staging
 secrets in production.
 
-## Client Environment
+## Frontend Environment
 
-Set the client API URL at build time:
+Set the frontend API URL at build time:
 
 ```text
 VITE_API_URL=https://api.portal.example.edu/api
 ```
 
-After changing `VITE_API_URL`, rebuild the client. Vite embeds this value into
-the production bundle.
+After changing `VITE_API_URL`, rebuild the frontend. Vite embeds this value
+into the production bundle.
 
 ## CORS
 
@@ -104,8 +104,8 @@ Apply pending migrations during a controlled deployment window:
 npm run db:migrate
 ```
 
-For a new database created from `database/schema.sql`, record the historical
-migrations without executing them:
+For a new database created from `backend/database/schema.sql`, record the
+historical migrations without executing them:
 
 ```powershell
 npm run db:migrate -- --baseline
@@ -171,7 +171,8 @@ Before release:
 - Confirm `VITE_API_URL` points to the production API.
 - Run `npm run db:migrate -- --dry-run`.
 - Take and verify a MySQL backup.
-- Run `npm run server:test`, `npm run client:lint`, `npm run client:build`,
+- Run `npm run backend:test`, `npm run frontend:lint`,
+  `npm run frontend:build`,
   and `npm run e2e` in a staging-like environment.
 
 After release:

@@ -39,27 +39,27 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: |
-            server/package-lock.json
-            client/package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
 
-      - name: Install server dependencies
-        run: npm ci --prefix server
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
 
-      - name: Install client dependencies
-        run: npm ci --prefix client
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
 
       - name: Set up Chrome
         id: setup-chrome
         uses: browser-actions/setup-chrome@v1
 
-      - name: Run server tests
-        run: npm run server:test
+      - name: Run backend tests
+        run: npm run backend:test
 
-      - name: Run client lint
-        run: npm run client:lint
+      - name: Run frontend lint
+        run: npm run frontend:lint
 
-      - name: Build client
-        run: npm run client:build
+      - name: Build frontend
+        run: npm run frontend:build
 
       - name: Run browser smoke test
         env:

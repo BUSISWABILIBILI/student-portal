@@ -1,7 +1,7 @@
 # Database
 
 `schema.sql` is the source of truth for fresh local database creation. It should
-represent the final schema expected by the current server repositories.
+represent the final schema expected by the current backend repositories.
 
 Files in `migrations/` are historical upgrade steps for existing databases.
 Do not run them after applying `schema.sql`, because the fresh schema already
@@ -11,7 +11,7 @@ contains their final state.
 
 ## Migration Runner
 
-Existing databases can be upgraded with the server migration runner:
+Existing databases can be upgraded with the backend migration runner:
 
 ```powershell
 npm run db:migrate:status
@@ -20,7 +20,7 @@ npm run db:migrate
 ```
 
 The runner reads `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`
-from the server environment. It creates a `schema_migrations` tracking table,
+from the backend environment. It creates a `schema_migrations` tracking table,
 runs pending files in lexical order, records a SHA-256 checksum for each applied
 file, and ignores `USE ...;` statements inside migration files so the configured
 `DB_NAME` remains the target database.

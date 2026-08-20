@@ -20,11 +20,12 @@ Express, and MySQL.
 
 ```text
 student-portal/
-├── client/      React + Vite frontend
-├── server/      Express API
-├── database/    MySQL schema, migrations, and seed data
-├── docs/        API notes
-└── package.json Root workflow scripts
+├── frontend/          React + Vite app
+├── backend/           Express API
+│   └── database/      MySQL schema, migrations, and seed data
+├── docs/              API notes
+├── e2e/               Browser smoke tests
+└── package.json       Root workflow scripts
 ```
 
 ## Prerequisites
@@ -35,41 +36,41 @@ student-portal/
 
 ## Environment Setup
 
-Create the server environment file:
+Create the backend environment file:
 
 ```powershell
-Copy-Item server/.env.example server/.env
+Copy-Item backend/.env.example backend/.env
 ```
 
-Then update `server/.env` for your local MySQL credentials and JWT secret.
+Then update `backend/.env` for your local MySQL credentials and JWT secret.
 
-Optional client environment file:
+Optional frontend environment file:
 
 ```powershell
-Copy-Item client/.env.example client/.env
+Copy-Item frontend/.env.example frontend/.env
 ```
 
-The default client API URL is `http://localhost:5000/api`.
+The default frontend API URL is `http://localhost:5000/api`.
 
 ## Install Dependencies
 
 ```powershell
-cd server
+cd backend
 npm install
 
-cd ../client
+cd ../frontend
 npm install
 ```
 
 ## Database Setup
 
-`database/schema.sql` is the source of truth for a fresh local database. It
-drops and recreates `student_portal`, so run it only when you intend to reset
-the local database.
+`backend/database/schema.sql` is the source of truth for a fresh local
+database. It drops and recreates `student_portal`, so run it only when you
+intend to reset the local database.
 
 ```powershell
-mysql -u root -p < database/schema.sql
-mysql -u root -p < database/seed.sql
+mysql -u root -p < backend/database/schema.sql
+mysql -u root -p < backend/database/seed.sql
 ```
 
 Create or refresh demo user accounts:
@@ -90,13 +91,13 @@ Student:       student@studentportal.local / Student@123
 In one terminal:
 
 ```powershell
-npm run server:dev
+npm run backend:dev
 ```
 
 In another terminal:
 
 ```powershell
-npm run client:dev
+npm run frontend:dev
 ```
 
 Frontend: `http://localhost:5173`
@@ -108,14 +109,14 @@ API health: `http://localhost:5000/api/health`
 Run backend tests:
 
 ```powershell
-npm run server:test
+npm run backend:test
 ```
 
 Run frontend lint and build:
 
 ```powershell
-npm run client:lint
-npm run client:build
+npm run frontend:lint
+npm run frontend:build
 ```
 
 Run all checks from the repository root:
@@ -139,8 +140,8 @@ targeting `main`.
 
 ## Notes
 
-- Migrations in `database/migrations/` are for upgrading older databases. Do
-  not run them after applying `database/schema.sql`; the fresh schema already
-  contains their final state.
+- Migrations in `backend/database/migrations/` are for upgrading older
+  databases. Do not run them after applying `backend/database/schema.sql`; the
+  fresh schema already contains their final state.
 
 Author: Busiswa Bili-Bili

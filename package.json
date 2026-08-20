@@ -3,16 +3,22 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "client:build": "npm --prefix client run build",
-    "client:dev": "npm --prefix client run dev",
-    "client:lint": "npm --prefix client run lint",
-    "server:dev": "npm --prefix server run dev",
-    "db:migrate": "npm --prefix server run migrate",
-    "db:migrate:status": "npm --prefix server run migrate:status",
-    "server:start": "npm --prefix server run start",
-    "server:test": "npm --prefix server run test",
-    "seed:users": "npm --prefix server run seed:users",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:lint": "npm --prefix frontend run lint",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend run start",
+    "backend:test": "npm --prefix backend run test",
+    "client:build": "npm run frontend:build",
+    "client:dev": "npm run frontend:dev",
+    "client:lint": "npm run frontend:lint",
+    "server:dev": "npm run backend:dev",
+    "server:start": "npm run backend:start",
+    "server:test": "npm run backend:test",
+    "db:migrate": "npm --prefix backend run migrate",
+    "db:migrate:status": "npm --prefix backend run migrate:status",
+    "seed:users": "npm --prefix backend run seed:users",
     "e2e": "node e2e/browser-smoke.test.mjs",
-    "check": "npm run server:test && npm run client:lint && npm run client:build && npm run e2e"
+    "check": "npm run backend:test && npm run frontend:lint && npm run frontend:build && npm run e2e"
   }
 }

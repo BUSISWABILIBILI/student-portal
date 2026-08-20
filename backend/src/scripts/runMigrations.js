@@ -6,7 +6,7 @@ import path from "node:path";
 
 import mysql from "mysql2/promise";
 
-const rootDir = path.resolve(import.meta.dirname, "../../..");
+const rootDir = path.resolve(import.meta.dirname, "../..");
 const migrationsDir = path.join(rootDir, "database", "migrations");
 const migrationTableName = "schema_migrations";
 

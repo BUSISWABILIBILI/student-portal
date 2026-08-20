@@ -51,7 +51,7 @@ const expectInvalid = (schema, input) => {
   return result.error.issues;
 };
 
-describe("server smoke checks", () => {
+describe("backend smoke checks", () => {
   it("imports the Express app and mounted routes", () => {
     assert.equal(typeof app.listen, "function");
     assert.equal(typeof app.use, "function");

@@ -2,7 +2,7 @@
 
 ## Current State
 
-- Database source of truth is `database/schema.sql`.
+- Database source of truth is `backend/database/schema.sql`.
 - Historical migrations are aligned with the current schema for older database
   upgrades.
 - Historical migrations can be applied or baselined with the tracked migration
@@ -10,9 +10,9 @@
 - Production environment, CORS, secret, migration, and MySQL backup procedures
   are documented.
 - Seed data targets the current schema and includes demo academic data.
-- Server import, validator, auth, and protected route smoke tests pass.
+- Backend import, validator, auth, and protected route smoke tests pass.
 - Frontend lint and production build pass.
-- GitHub Actions CI runs server tests, client lint, client build, and browser
+- GitHub Actions CI runs backend tests, frontend lint, frontend build, and browser
   smoke coverage on pushes and pull requests targeting `main`.
 - The React portal covers the main admin and student workflows:
   authentication, dashboards, courses, registration, results, announcements,
@@ -25,9 +25,9 @@
 Run these from the repository root:
 
 ```powershell
-npm run server:test
-npm run client:lint
-npm run client:build
+npm run backend:test
+npm run frontend:lint
+npm run frontend:build
 npm run e2e
 ```
 
@@ -37,7 +37,7 @@ The root `npm run check` script runs those checks in sequence.
 launches a headless Chrome or Edge browser, verifies the core admin and student
 portal navigation, and exercises administrator course, result, announcement,
 and user management write flows plus student registration and cancellation.
-Backend behavior remains covered by the server smoke tests.
+Backend behavior remains covered by the backend smoke tests.
 
 ## Remaining Production Work
 

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
-const clientDir = path.join(rootDir, "client");
+const clientDir = path.join(rootDir, "frontend");
 const apiPort = Number(process.env.E2E_API_PORT || 5100);
 const webPort = Number(process.env.E2E_WEB_PORT || 5175);
 const apiUrl = `http://127.0.0.1:${apiPort}`;
