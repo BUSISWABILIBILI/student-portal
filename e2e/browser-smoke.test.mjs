@@ -1090,7 +1090,9 @@ const findBrowserExecutable = () => {
     "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/opt/google/chrome/chrome",
     "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
     "/usr/bin/microsoft-edge",
@@ -1292,6 +1294,7 @@ const launchBrowser = async (url) => {
     [
       "--headless=new",
       "--disable-gpu",
+      ...(process.env.CI ? ["--no-sandbox", "--disable-dev-shm-usage"] : []),
       "--no-first-run",
       "--no-default-browser-check",
       "--disable-extensions",

@@ -48,6 +48,10 @@ jobs:
       - name: Install client dependencies
         run: npm ci --prefix client
 
+      - name: Set up Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+
       - name: Run server tests
         run: npm run server:test
 
@@ -58,4 +62,6 @@ jobs:
         run: npm run client:build
 
       - name: Run browser smoke test
+        env:
+          E2E_BROWSER_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: npm run e2e
