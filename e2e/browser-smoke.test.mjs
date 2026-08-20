@@ -1758,12 +1758,17 @@ const run = async () => {
     console.log("Browser smoke test passed.");
   } finally {
     await page?.close();
-    browser?.kill("SIGTERM");
+    await stopProcess(browser);
     await stopProcess(web);
     await closeServer(api);
 
     if (userDataDir) {
-      fs.rmSync(userDataDir, { force: true, recursive: true });
+      fs.rmSync(userDataDir, {
+        force: true,
+        maxRetries: 5,
+        recursive: true,
+        retryDelay: 100,
+      });
     }
   }
 };
