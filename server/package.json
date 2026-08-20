@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
+    "migrate": "node src/scripts/runMigrations.js",
+    "migrate:status": "node src/scripts/runMigrations.js --status",
     "start": "node src/server.js",
     "test": "node test/run.js",
     "seed:users": "node src/scripts/seedUsers.js"

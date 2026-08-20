@@ -5,6 +5,8 @@
 - Database source of truth is `database/schema.sql`.
 - Historical migrations are aligned with the current schema for older database
   upgrades.
+- Historical migrations can be applied or baselined with the tracked migration
+  runner.
 - Seed data targets the current schema and includes demo academic data.
 - Server import, validator, auth, and protected route smoke tests pass.
 - Frontend lint and production build pass.
@@ -33,7 +35,6 @@ Backend behavior remains covered by the server smoke tests.
 
 ## Remaining Production Work
 
-- Add a migration runner or deployment procedure for non-local databases.
 - Add password reset and password change flows.
 - Add production environment documentation for secrets, CORS origins, and MySQL
   backups.

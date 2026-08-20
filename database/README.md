@@ -8,3 +8,30 @@ Do not run them after applying `schema.sql`, because the fresh schema already
 contains their final state.
 
 `seed.sql` targets the current `schema.sql` contract.
+
+## Migration Runner
+
+Existing databases can be upgraded with the server migration runner:
+
+```powershell
+npm run db:migrate:status
+npm run db:migrate -- --dry-run
+npm run db:migrate
+```
+
+The runner reads `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`
+from the server environment. It creates a `schema_migrations` tracking table,
+runs pending files in lexical order, records a SHA-256 checksum for each applied
+file, and ignores `USE ...;` statements inside migration files so the configured
+`DB_NAME` remains the target database.
+
+If a database was created from the current `schema.sql`, or the historical
+migrations were already applied manually, record the existing migration files
+without executing them:
+
+```powershell
+npm run db:migrate -- --baseline
+```
+
+Only use `--baseline` after confirming the live database already matches the
+schema expected by the application.
