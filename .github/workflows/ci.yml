@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      CLIENT_URL: http://127.0.0.1:5175
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: student_portal
+      JWT_SECRET: ci-test-secret-change-before-production
+      JWT_EXPIRES_IN: 1d
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Install client dependencies
+        run: npm ci --prefix client
+
+      - name: Run server tests
+        run: npm run server:test
+
+      - name: Run client lint
+        run: npm run client:lint
+
+      - name: Build client
+        run: npm run client:build
+
+      - name: Run browser smoke test
+        run: npm run e2e

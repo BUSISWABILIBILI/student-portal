@@ -12,6 +12,8 @@
 - Seed data targets the current schema and includes demo academic data.
 - Server import, validator, auth, and protected route smoke tests pass.
 - Frontend lint and production build pass.
+- GitHub Actions CI runs server tests, client lint, client build, and browser
+  smoke coverage on pushes and pull requests targeting `main`.
 - The React portal covers the main admin and student workflows:
   authentication, dashboards, courses, registration, results, announcements,
   and user management.
@@ -39,4 +41,4 @@ Backend behavior remains covered by the server smoke tests.
 
 ## Remaining Production Work
 
-- Add CI so tests, lint, and build run automatically on pull requests.
+- No open readiness gaps are currently tracked.

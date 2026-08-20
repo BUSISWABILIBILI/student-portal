@@ -124,6 +124,9 @@ Run all checks from the repository root:
 npm run check
 ```
 
+GitHub Actions runs the same verification set on pushes and pull requests
+targeting `main`.
+
 ## API Documentation
 
 - [Authentication](docs/authentication-api.md)

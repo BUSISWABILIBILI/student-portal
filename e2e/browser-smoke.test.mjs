@@ -1475,7 +1475,7 @@ const selectField = async (page, name, value) => {
 
 const expectText = async (page, text) => {
   await page.waitFor(
-    `document.body.innerText.toLowerCase().includes(${JSON.stringify(
+    `(document.body?.innerText || "").toLowerCase().includes(${JSON.stringify(
       text.toLowerCase(),
     )})`,
     `Expected page text: ${text}`,
@@ -1484,7 +1484,7 @@ const expectText = async (page, text) => {
 
 const expectNoText = async (page, text) => {
   const hasText = await page.evaluate(
-    `document.body.innerText.toLowerCase().includes(${JSON.stringify(
+    `(document.body?.innerText || "").toLowerCase().includes(${JSON.stringify(
       text.toLowerCase(),
     )})`,
   );
@@ -1494,7 +1494,7 @@ const expectNoText = async (page, text) => {
 
 const waitForNoText = async (page, text) => {
   await page.waitFor(
-    `!document.body.innerText.toLowerCase().includes(${JSON.stringify(
+    `!(document.body?.innerText || "").toLowerCase().includes(${JSON.stringify(
       text.toLowerCase(),
     )})`,
     `Expected page text to disappear: ${text}`,
