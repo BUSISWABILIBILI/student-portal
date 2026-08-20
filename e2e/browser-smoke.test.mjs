@@ -61,7 +61,40 @@ const demoCourse = {
   isActive: true,
 };
 
+const academicPeriod = {
+  id: 1,
+  name: "2026 First Semester",
+  academicYear: 2026,
+  registrationOpen: true,
+};
+
+const demoStudentSummary = {
+  id: 2,
+  name: "Demo Student",
+  studentNumber: "STU20260001",
+};
+
+let nextCourseId = 2;
+let nextEnrollmentId = 2;
+let nextResultId = 1;
+let nextUserId = 3;
+let nextStudentProfileId = 8;
 let nextAnnouncementId = 2;
+
+const courses = [demoCourse];
+
+const enrollments = [
+  {
+    id: 1,
+    status: "registered",
+    student: demoStudentSummary,
+    course: demoCourse,
+    academicPeriod,
+    result: null,
+  },
+];
+
+const results = [];
 
 const announcements = [
   {
@@ -100,6 +133,45 @@ const readBody = (request) =>
       resolve(rawBody ? JSON.parse(rawBody) : {});
     });
   });
+
+const getFullName = (user) => `${user.firstName} ${user.lastName}`;
+
+const getUserById = (userId) =>
+  Object.values(demoUsers).find((user) => user.id === Number(userId));
+
+const calculateResultFields = ({ courseworkMark, examinationMark }) => {
+  if (courseworkMark === null || examinationMark === null) {
+    return {
+      finalMark: null,
+      grade: null,
+      gradePoint: null,
+      outcome: "incomplete",
+    };
+  }
+
+  const finalMark = Number((courseworkMark * 0.4 + examinationMark * 0.6).toFixed(2));
+
+  if (finalMark >= 75) {
+    return { finalMark, grade: "A", gradePoint: 4, outcome: "pass" };
+  }
+
+  if (finalMark >= 65) {
+    return { finalMark, grade: "B", gradePoint: 3, outcome: "pass" };
+  }
+
+  if (finalMark >= 50) {
+    return { finalMark, grade: "C", gradePoint: 2, outcome: "pass" };
+  }
+
+  return { finalMark, grade: "F", gradePoint: 0, outcome: "fail" };
+};
+
+const syncCourseCapacity = (course) => {
+  course.availablePlaces = Math.max(course.capacity - course.enrolledCount, 0);
+  course.isFull = course.availablePlaces === 0;
+
+  return course;
+};
 
 const getUserFromRequest = (request) => {
   const token = request.headers.authorization?.replace(/^Bearer\s+/i, "");
@@ -231,12 +303,76 @@ const startMockApi = () =>
       }
 
       if (route === "GET /api/courses") {
+        const visibleCourses =
+          user.role === "student"
+            ? courses.filter((course) => course.isActive)
+            : courses;
+
         sendJson(response, 200, {
           success: true,
           data: {
-            courses: [demoCourse],
-            pagination: { page: 1, limit: 50, totalItems: 1, totalPages: 1 },
+            courses: visibleCourses.map(syncCourseCapacity),
+            pagination: {
+              page: 1,
+              limit: 50,
+              totalItems: visibleCourses.length,
+              totalPages: 1,
+            },
           },
+        });
+        return;
+      }
+
+      if (route === "POST /api/courses") {
+        const body = await readBody(request);
+        const course = syncCourseCapacity({
+          id: nextCourseId,
+          courseCode: body.courseCode,
+          courseName: body.courseName,
+          description: body.description,
+          department: body.department,
+          creditValue: body.creditValue,
+          capacity: body.capacity,
+          enrolledCount: 0,
+          availablePlaces: body.capacity,
+          isFull: false,
+          isActive: body.isActive,
+        });
+
+        nextCourseId += 1;
+        courses.unshift(course);
+
+        sendJson(response, 201, {
+          success: true,
+          message: "Course created successfully.",
+          data: { course },
+        });
+        return;
+      }
+
+      const courseRouteMatch = url.pathname.match(/^\/api\/courses\/(\d+)$/);
+
+      if (courseRouteMatch && request.method === "PATCH") {
+        const [, rawCourseId] = courseRouteMatch;
+        const course = courses.find((item) => item.id === Number(rawCourseId));
+
+        if (!course) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Course not found.",
+          });
+          return;
+        }
+
+        const body = await readBody(request);
+
+        Object.assign(course, body);
+        syncCourseCapacity(course);
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Course updated successfully.",
+          data: { course },
         });
         return;
       }
@@ -245,34 +381,32 @@ const startMockApi = () =>
         sendJson(response, 200, {
           success: true,
           data: {
-            academicPeriods: [
-              {
-                id: 1,
-                name: "2026 First Semester",
-                academicYear: 2026,
-                registrationOpen: true,
-              },
-            ],
+            academicPeriods: [academicPeriod],
           },
         });
         return;
       }
 
       if (route === "GET /api/enrollments") {
+        const pendingOnly = url.searchParams.get("resultStatus") === "pending";
+        const visibleEnrollments = pendingOnly
+          ? enrollments.filter(
+              (enrollment) =>
+                enrollment.status === "registered" &&
+                !results.some((result) => result.enrollmentId === enrollment.id),
+            )
+          : enrollments;
+
         sendJson(response, 200, {
           success: true,
           data: {
-            enrollments: [
-              {
-                id: 1,
-                status: "registered",
-                student: demoUsers["student@studentportal.local"],
-                course: demoCourse,
-                academicPeriod: { id: 1, name: "2026 First Semester" },
-                result: null,
-              },
-            ],
-            pagination: { page: 1, limit: 100, totalItems: 1, totalPages: 1 },
+            enrollments: visibleEnrollments,
+            pagination: {
+              page: 1,
+              limit: 100,
+              totalItems: visibleEnrollments.length,
+              totalPages: 1,
+            },
           },
         });
         return;
@@ -282,15 +416,90 @@ const startMockApi = () =>
         sendJson(response, 200, {
           success: true,
           data: {
-            courses: [
-              {
-                id: 1,
-                status: "registered",
-                course: demoCourse,
-                academicPeriod: { id: 1, name: "2026 First Semester" },
-              },
-            ],
+            courses: enrollments.map((enrollment) => ({
+              id: enrollment.id,
+              status: enrollment.status,
+              course: syncCourseCapacity(enrollment.course),
+              academicPeriod: enrollment.academicPeriod,
+            })),
           },
+        });
+        return;
+      }
+
+      if (route === "POST /api/enrollments") {
+        const body = await readBody(request);
+        const course = courses.find((item) => item.id === Number(body.courseId));
+
+        if (!course) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Course not found.",
+          });
+          return;
+        }
+
+        let enrollment = enrollments.find(
+          (item) => item.course.id === course.id && item.status !== "registered",
+        );
+
+        if (enrollment) {
+          enrollment.status = "registered";
+        } else {
+          enrollment = {
+            id: nextEnrollmentId,
+            status: "registered",
+            student: demoStudentSummary,
+            course,
+            academicPeriod,
+            result: null,
+          };
+          nextEnrollmentId += 1;
+          enrollments.push(enrollment);
+        }
+
+        course.enrolledCount += 1;
+        syncCourseCapacity(course);
+
+        sendJson(response, 201, {
+          success: true,
+          message: "Course registration completed successfully.",
+          data: { registration: enrollment },
+        });
+        return;
+      }
+
+      const cancelEnrollmentMatch = url.pathname.match(
+        /^\/api\/enrollments\/(\d+)\/cancel$/,
+      );
+
+      if (cancelEnrollmentMatch && request.method === "PATCH") {
+        const [, rawCourseId] = cancelEnrollmentMatch;
+        const enrollment = enrollments.find(
+          (item) =>
+            item.course.id === Number(rawCourseId) &&
+            item.status === "registered",
+        );
+
+        if (!enrollment) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Registration not found.",
+          });
+          return;
+        }
+
+        enrollment.status = "cancelled";
+        enrollment.course.enrolledCount = Math.max(
+          enrollment.course.enrolledCount - 1,
+          0,
+        );
+        syncCourseCapacity(enrollment.course);
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Course registration cancelled successfully.",
+          data: { registration: enrollment },
         });
         return;
       }
@@ -299,40 +508,160 @@ const startMockApi = () =>
         sendJson(response, 200, {
           success: true,
           data: {
-            results: [
-              {
-                id: 1,
-                enrollmentId: 1,
-                courseworkMark: 76,
-                examinationMark: 72,
-                finalMark: 73.6,
-                grade: "B",
-                outcome: "pass",
-                publicationStatus: "draft",
-                student: { name: "Demo Student", studentNumber: "STU20260001" },
-                course: demoCourse,
-                academicPeriod: { label: "2026 First Semester" },
-              },
-            ],
+            results,
           },
         });
         return;
       }
 
       if (route === "GET /api/results/me") {
+        const publishedResults = results.filter(
+          (result) => result.publicationStatus === "published",
+        );
+        const passedResults = publishedResults.filter(
+          (result) => result.outcome === "pass",
+        );
+        const earnedCredits = passedResults.reduce(
+          (total, result) => total + Number(result.course.creditValue || 0),
+          0,
+        );
+        const averageMark =
+          publishedResults.length > 0
+            ? Number(
+                (
+                  publishedResults.reduce(
+                    (total, result) => total + Number(result.finalMark || 0),
+                    0,
+                  ) / publishedResults.length
+                ).toFixed(2),
+              )
+            : 0;
+        const gpa =
+          publishedResults.length > 0
+            ? Number(
+                (
+                  publishedResults.reduce(
+                    (total, result) => total + Number(result.gradePoint || 0),
+                    0,
+                  ) / publishedResults.length
+                ).toFixed(2),
+              )
+            : 0;
+
         sendJson(response, 200, {
           success: true,
           data: {
-            results: [],
+            results: publishedResults,
             academicSummary: {
-              totalPublishedResults: 1,
-              completedCourses: 1,
-              passedCourses: 1,
-              earnedCredits: 12,
-              averageMark: 74,
-              gpa: 3,
+              totalPublishedResults: publishedResults.length,
+              completedCourses: publishedResults.length,
+              passedCourses: passedResults.length,
+              earnedCredits,
+              averageMark,
+              gpa,
             },
           },
+        });
+        return;
+      }
+
+      if (route === "POST /api/results") {
+        const body = await readBody(request);
+        const enrollment = enrollments.find(
+          (item) => item.id === Number(body.enrollmentId),
+        );
+
+        if (!enrollment) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Enrollment not found.",
+          });
+          return;
+        }
+
+        const marks = {
+          courseworkMark: body.courseworkMark ?? null,
+          examinationMark: body.examinationMark ?? null,
+        };
+        const result = {
+          id: nextResultId,
+          enrollmentId: enrollment.id,
+          ...marks,
+          ...calculateResultFields(marks),
+          publicationStatus: "draft",
+          remarks: body.remarks,
+          student: enrollment.student,
+          course: enrollment.course,
+          academicPeriod: { label: enrollment.academicPeriod.name },
+        };
+
+        nextResultId += 1;
+        enrollment.result = result;
+        results.unshift(result);
+
+        sendJson(response, 201, {
+          success: true,
+          message: "Result captured successfully.",
+          data: { result },
+        });
+        return;
+      }
+
+      const resultRouteMatch = url.pathname.match(
+        /^\/api\/results\/(\d+)(?:\/(publish|unpublish))?$/,
+      );
+
+      if (resultRouteMatch && request.method === "PATCH") {
+        const [, rawResultId, action] = resultRouteMatch;
+        const result = results.find((item) => item.id === Number(rawResultId));
+
+        if (!result) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Result not found.",
+          });
+          return;
+        }
+
+        if (action === "publish") {
+          result.publicationStatus = "published";
+
+          sendJson(response, 200, {
+            success: true,
+            message: "Result published successfully.",
+            data: { result },
+          });
+          return;
+        }
+
+        if (action === "unpublish") {
+          result.publicationStatus = "draft";
+
+          sendJson(response, 200, {
+            success: true,
+            message: "Result returned to draft successfully.",
+            data: { result },
+          });
+          return;
+        }
+
+        const body = await readBody(request);
+        const marks = {
+          courseworkMark: body.courseworkMark ?? null,
+          examinationMark: body.examinationMark ?? null,
+        };
+
+        Object.assign(result, {
+          ...marks,
+          ...calculateResultFields(marks),
+          publicationStatus: "draft",
+          remarks: body.remarks,
+        });
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Result updated successfully.",
+          data: { result },
         });
         return;
       }
@@ -491,12 +820,169 @@ const startMockApi = () =>
         return;
       }
 
+      if (route === "POST /api/users/students") {
+        const body = await readBody(request);
+        const student = {
+          id: nextUserId,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          role: "student",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          studentProfile: {
+            id: nextStudentProfileId,
+            studentNumber: `STU2026000${nextStudentProfileId}`,
+            programme: body.programme,
+            yearLevel: body.yearLevel,
+            dateOfBirth: body.dateOfBirth,
+            gender: body.gender,
+            phoneNumber: body.phoneNumber,
+            addressLine: body.addressLine,
+            city: body.city,
+            province: body.province,
+            postalCode: body.postalCode,
+            admissionDate: body.admissionDate,
+          },
+        };
+
+        student.fullName = getFullName(student);
+        nextUserId += 1;
+        nextStudentProfileId += 1;
+        demoUsers[student.email] = student;
+
+        sendJson(response, 201, {
+          success: true,
+          message: "Student account created successfully.",
+          data: { student },
+        });
+        return;
+      }
+
+      const userProfileRouteMatch = url.pathname.match(
+        /^\/api\/users\/(\d+)\/student-profile$/,
+      );
+
+      if (userProfileRouteMatch && request.method === "PATCH") {
+        const [, rawUserId] = userProfileRouteMatch;
+        const targetUser = getUserById(rawUserId);
+
+        if (!targetUser?.studentProfile) {
+          sendJson(response, 404, {
+            success: false,
+            message: "Student profile not found.",
+          });
+          return;
+        }
+
+        const body = await readBody(request);
+
+        Object.assign(targetUser.studentProfile, body);
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Student profile updated successfully.",
+          data: { student: targetUser },
+        });
+        return;
+      }
+
+      const userStatusRouteMatch = url.pathname.match(
+        /^\/api\/users\/(\d+)\/status$/,
+      );
+
+      if (userStatusRouteMatch && request.method === "PATCH") {
+        const [, rawUserId] = userStatusRouteMatch;
+        const targetUser = getUserById(rawUserId);
+
+        if (!targetUser) {
+          sendJson(response, 404, {
+            success: false,
+            message: "User not found.",
+          });
+          return;
+        }
+
+        const body = await readBody(request);
+
+        targetUser.isActive = body.isActive;
+
+        sendJson(response, 200, {
+          success: true,
+          message: targetUser.isActive
+            ? "User account activated successfully."
+            : "User account deactivated successfully.",
+          data: { user: targetUser },
+        });
+        return;
+      }
+
+      const userRouteMatch = url.pathname.match(/^\/api\/users\/(\d+)$/);
+
+      if (userRouteMatch && request.method === "PATCH") {
+        const [, rawUserId] = userRouteMatch;
+        const targetUser = getUserById(rawUserId);
+
+        if (!targetUser) {
+          sendJson(response, 404, {
+            success: false,
+            message: "User not found.",
+          });
+          return;
+        }
+
+        const body = await readBody(request);
+        const previousEmail = targetUser.email;
+
+        Object.assign(targetUser, {
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+        });
+        targetUser.fullName = getFullName(targetUser);
+
+        if (previousEmail !== targetUser.email) {
+          delete demoUsers[previousEmail];
+          demoUsers[targetUser.email] = targetUser;
+        }
+
+        sendJson(response, 200, {
+          success: true,
+          message: "User account updated successfully.",
+          data: { user: targetUser },
+        });
+        return;
+      }
+
       if (route === "GET /api/users") {
+        const role = url.searchParams.get("role");
+        const status = url.searchParams.get("status");
+        const users = Object.values(demoUsers).filter((item) => {
+          if (role && item.role !== role) {
+            return false;
+          }
+
+          if (status === "active" && !item.isActive) {
+            return false;
+          }
+
+          if (status === "inactive" && item.isActive) {
+            return false;
+          }
+
+          return true;
+        });
+
         sendJson(response, 200, {
           success: true,
           data: {
-            users: Object.values(demoUsers),
-            pagination: { page: 1, limit: 50, totalItems: 2, totalPages: 1 },
+            users,
+            pagination: {
+              page: 1,
+              limit: 50,
+              totalItems: users.length,
+              totalPages: 1,
+            },
           },
         });
         return;
@@ -671,7 +1157,10 @@ class CdpPage {
     });
 
     if (response.exceptionDetails) {
-      throw new Error(response.exceptionDetails.text);
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text,
+      );
     }
 
     return response.result.value;
@@ -732,14 +1221,25 @@ const launchBrowser = async (url) => {
 
   const portFile = path.join(userDataDir, "DevToolsActivePort");
   const startedAt = Date.now();
+  let portText = "";
 
-  while (Date.now() - startedAt < timeoutMs && !fs.existsSync(portFile)) {
+  while (Date.now() - startedAt < timeoutMs && !portText) {
+    if (fs.existsSync(portFile)) {
+      try {
+        portText = fs.readFileSync(portFile, "utf8").trim();
+      } catch (error) {
+        if (error.code !== "EBUSY") {
+          throw error;
+        }
+      }
+    }
+
     await delay(100);
   }
 
-  assert(fs.existsSync(portFile), "Timed out waiting for browser debug port.");
+  assert(portText, "Timed out waiting for browser debug port.");
 
-  const [port] = fs.readFileSync(portFile, "utf8").trim().split(/\r?\n/);
+  const [port] = portText.split(/\r?\n/);
   const targetResponse = await fetch(
     `http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`,
     {
@@ -755,12 +1255,76 @@ const launchBrowser = async (url) => {
 };
 
 const clickByText = async (page, text) => {
+  await page.waitFor(
+    `(() => {
+      const candidates = [...document.querySelectorAll("button, a")];
+
+      return candidates.some(
+        (node) =>
+          node.textContent.trim() === ${JSON.stringify(text)} &&
+          !node.disabled,
+      );
+    })()`,
+    `Expected enabled clickable text: ${text}`,
+  );
+
   await page.evaluate(`(() => {
     const candidates = [...document.querySelectorAll("button, a")];
-    const element = candidates.find((node) => node.textContent.trim() === ${JSON.stringify(text)});
+    const element = candidates.find(
+      (node) =>
+        node.textContent.trim() === ${JSON.stringify(text)} &&
+        !node.disabled,
+    );
 
     if (!element) {
       throw new Error("Could not find clickable text: ${text}");
+    }
+
+    element.click();
+    return true;
+  })()`);
+};
+
+const clickButtonNearText = async (page, contextText, buttonText) => {
+  await page.waitFor(
+    `(() => {
+      const containers = [...document.querySelectorAll("tr, article, section")];
+
+      return containers.some((node) => {
+        const text = node.innerText || node.textContent || "";
+
+        if (!text.includes(${JSON.stringify(contextText)})) {
+          return false;
+        }
+
+        return [...node.querySelectorAll("button, a")].some(
+          (candidate) =>
+            candidate.textContent.trim() === ${JSON.stringify(buttonText)},
+        );
+      });
+    })()`,
+    `Expected ${buttonText} near ${contextText}`,
+  );
+
+  await page.evaluate(`(() => {
+    const containers = [...document.querySelectorAll("tr, article, section")];
+    const container = containers.find((node) =>
+      (node.innerText || node.textContent || "").includes(${JSON.stringify(
+        contextText,
+      )})
+    );
+
+    if (!container) {
+      throw new Error("Could not find container text: ${contextText}");
+    }
+
+    const candidates = [...container.querySelectorAll("button, a")];
+    const element = candidates.find(
+      (node) => node.textContent.trim() === ${JSON.stringify(buttonText)},
+    );
+
+    if (!element) {
+      throw new Error("Could not find button near ${contextText}: ${buttonText}");
     }
 
     element.click();
@@ -791,6 +1355,20 @@ const fillField = async (page, name, value) => {
 };
 
 const selectField = async (page, name, value) => {
+  await page.waitFor(
+    `(() => {
+      const element = document.querySelector('[name="${name}"]');
+
+      return Boolean(
+        element &&
+          [...element.options].some(
+            (option) => option.value === ${JSON.stringify(value)},
+          ),
+      );
+    })()`,
+    `Expected select option ${value} for ${name}`,
+  );
+
   await page.evaluate(`(() => {
     const element = document.querySelector('[name="${name}"]');
 
@@ -798,7 +1376,12 @@ const selectField = async (page, name, value) => {
       throw new Error("Could not find field: ${name}");
     }
 
-    element.value = ${JSON.stringify(value)};
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      "value",
+    );
+
+    descriptor.set.call(element, ${JSON.stringify(value)});
     element.dispatchEvent(new Event("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
@@ -883,8 +1466,43 @@ const run = async () => {
 
     await clickByText(page, "Courses");
     await expectText(page, "Course setup");
+    await fillField(page, "courseCode", "E2E102");
+    await fillField(page, "courseName", "Browser Tested Systems");
+    await fillField(page, "department", "Quality Assurance");
+    await fillField(page, "creditValue", "15");
+    await fillField(page, "capacity", "3");
+    await fillField(
+      page,
+      "description",
+      "Managed through the browser smoke test.",
+    );
+    await clickByText(page, "Create course");
+    await expectText(page, "Course created successfully.");
+    await expectText(page, "E2E102");
+    await clickButtonNearText(page, "E2E102", "Deactivate");
+    await expectText(page, "Course updated successfully.");
+    await expectText(page, "Inactive");
+    await clickButtonNearText(page, "E2E102", "Activate");
+    await expectText(page, "Course updated successfully.");
     await clickByText(page, "Results");
     await expectText(page, "Capture result");
+    await selectField(page, "enrollmentId", "1");
+    await fillField(page, "courseworkMark", "85");
+    await fillField(page, "examinationMark", "75");
+    await fillField(page, "remarks", "Captured in the browser smoke test.");
+    await clickByText(page, "Capture result");
+    await expectText(page, "Result captured successfully.");
+    await expectText(page, "DEV101");
+    await expectText(page, "Draft");
+    await clickButtonNearText(page, "DEV101", "Edit");
+    await fillField(page, "courseworkMark", "90");
+    await fillField(page, "examinationMark", "80");
+    await fillField(page, "remarks", "Updated in the browser smoke test.");
+    await clickByText(page, "Update result");
+    await expectText(page, "Result updated successfully.");
+    await clickButtonNearText(page, "DEV101", "Publish");
+    await expectText(page, "Result published successfully.");
+    await expectText(page, "pass");
     await clickByText(page, "Announcements");
     await expectText(page, "New announcement");
     await fillField(page, "title", "E2E notice");
@@ -913,6 +1531,26 @@ const run = async () => {
     await waitForNoText(page, "E2E updated notice");
     await clickByText(page, "Users");
     await expectText(page, "New student");
+    await fillField(page, "firstName", "E2E");
+    await fillField(page, "lastName", "Learner");
+    await fillField(page, "email", "e2e.learner@studentportal.local");
+    await fillField(page, "password", "Student@123");
+    await fillField(page, "programme", "Diploma in QA");
+    await fillField(page, "yearLevel", "1");
+    await clickByText(page, "Create student");
+    await expectText(page, "Student account created successfully.");
+    await expectText(page, "E2E Learner");
+    await clickButtonNearText(page, "E2E Learner", "Edit");
+    await fillField(page, "firstName", "E2E Updated");
+    await fillField(page, "programme", "Diploma in Testing");
+    await clickByText(page, "Update user");
+    await expectText(
+      page,
+      "User account and student profile updated successfully.",
+    );
+    await expectText(page, "E2E Updated Learner");
+    await clickButtonNearText(page, "E2E Updated Learner", "Deactivate");
+    await expectText(page, "User account deactivated successfully.");
 
     await clickByText(page, "Sign out");
     await expectText(page, "Sign in");
@@ -921,8 +1559,14 @@ const run = async () => {
     await expectNoText(page, "Users");
     await clickByText(page, "Courses");
     await expectText(page, "Academic period");
+    await clickButtonNearText(page, "E2E102", "Register");
+    await expectText(page, "Course registration completed successfully.");
+    await expectText(page, "Registered for 2026 First Semester");
+    await clickButtonNearText(page, "E2E102", "Cancel registration");
+    await expectText(page, "Course registration cancelled successfully.");
     await clickByText(page, "Results");
     await expectText(page, "Published results");
+    await expectText(page, "DEV101");
     await clickByText(page, "Announcements");
     await expectText(page, "Registration notice");
 
