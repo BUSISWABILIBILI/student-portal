@@ -132,6 +132,7 @@ npm run check
 - [Academic results](docs/results-api.md)
 - [Announcements](docs/announcements-api.md)
 - [Project readiness](docs/project-readiness.md)
+- [Production operations](docs/production-operations.md)
 
 ## Notes
 

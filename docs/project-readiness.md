@@ -7,6 +7,8 @@
   upgrades.
 - Historical migrations can be applied or baselined with the tracked migration
   runner.
+- Production environment, CORS, secret, migration, and MySQL backup procedures
+  are documented.
 - Seed data targets the current schema and includes demo academic data.
 - Server import, validator, auth, and protected route smoke tests pass.
 - Frontend lint and production build pass.
@@ -37,6 +39,4 @@ Backend behavior remains covered by the server smoke tests.
 
 ## Remaining Production Work
 
-- Add production environment documentation for secrets, CORS origins, and MySQL
-  backups.
 - Add CI so tests, lint, and build run automatically on pull requests.
