@@ -13,6 +13,8 @@
 - The React portal covers the main admin and student workflows:
   authentication, dashboards, courses, registration, results, announcements,
   and user management.
+- Password change and token-based password reset flows are available through
+  the API and React portal.
 
 ## Verification Commands
 
@@ -35,7 +37,6 @@ Backend behavior remains covered by the server smoke tests.
 
 ## Remaining Production Work
 
-- Add password reset and password change flows.
 - Add production environment documentation for secrets, CORS origins, and MySQL
   backups.
 - Add CI so tests, lint, and build run automatically on pull requests.

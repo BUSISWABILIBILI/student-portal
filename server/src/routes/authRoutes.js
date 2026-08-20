@@ -2,15 +2,24 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 
 import {
+  changePassword,
   createAccount,
   getMe,
   login,
   logout,
+  requestPasswordReset,
+  resetPassword,
 } from "../controllers/authController.js";
 import authenticate from "../middleware/authenticate.js";
 import authorize from "../middleware/authorize.js";
 import validateRequest from "../middleware/validateRequest.js";
-import { createUserSchema, loginSchema } from "../validators/authValidators.js";
+import {
+  changePasswordSchema,
+  createUserSchema,
+  loginSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema,
+} from "../validators/authValidators.js";
 
 const router = Router();
 
@@ -28,6 +37,18 @@ const loginLimiter = rateLimit({
 router.post("/login", loginLimiter, validateRequest(loginSchema), login);
 
 router.post(
+  "/password-reset/request",
+  validateRequest(requestPasswordResetSchema),
+  requestPasswordReset,
+);
+
+router.post(
+  "/password-reset/confirm",
+  validateRequest(resetPasswordSchema),
+  resetPassword,
+);
+
+router.post(
   "/users",
   authenticate,
   authorize("admin"),
@@ -36,6 +57,13 @@ router.post(
 );
 
 router.get("/me", authenticate, getMe);
+
+router.patch(
+  "/me/password",
+  authenticate,
+  validateRequest(changePasswordSchema),
+  changePassword,
+);
 
 router.post("/logout", authenticate, logout);
 

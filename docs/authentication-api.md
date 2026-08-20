@@ -30,11 +30,63 @@ Request:
 
 Successful responses include `data.accessToken` and `data.user`.
 
+## Request Password Reset
+
+```http
+POST /auth/password-reset/request
+```
+
+Request:
+
+```json
+{
+  "email": "student@studentportal.local"
+}
+```
+
+The response is intentionally generic so unknown email addresses are not
+revealed. In non-production environments, `data.resetToken` is returned for
+local testing. Production should deliver the reset token through a trusted email
+provider.
+
+## Confirm Password Reset
+
+```http
+POST /auth/password-reset/confirm
+```
+
+Request:
+
+```json
+{
+  "token": "reset-token-from-email",
+  "newPassword": "Student@456"
+}
+```
+
+Reset tokens expire after 60 minutes and can only be used once.
+
 ## Current User
 
 ```http
 GET /auth/me
 Authorization: Bearer <access-token>
+```
+
+## Change Password
+
+```http
+PATCH /auth/me/password
+Authorization: Bearer <access-token>
+```
+
+Request:
+
+```json
+{
+  "currentPassword": "Admin@123",
+  "newPassword": "Admin@456"
+}
 ```
 
 ## Create Basic User Account

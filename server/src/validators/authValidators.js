@@ -48,3 +48,44 @@ export const createUserSchema = z.object({
   params: z.object({}),
   query: z.object({}),
 });
+
+export const changePasswordSchema = z.object({
+  body: z
+    .object({
+      currentPassword: z.string().min(1, "Current password is required."),
+
+      newPassword: passwordSchema,
+    })
+    .strict()
+    .refine((body) => body.currentPassword !== body.newPassword, {
+      path: ["newPassword"],
+      message: "New password must be different from the current password.",
+    }),
+
+  params: z.object({}),
+  query: z.object({}),
+});
+
+export const requestPasswordResetSchema = z.object({
+  body: z
+    .object({
+      email: z.email("Enter a valid email address.").trim().toLowerCase(),
+    })
+    .strict(),
+
+  params: z.object({}),
+  query: z.object({}),
+});
+
+export const resetPasswordSchema = z.object({
+  body: z
+    .object({
+      token: z.string().trim().min(32, "Password reset token is required."),
+
+      newPassword: passwordSchema,
+    })
+    .strict(),
+
+  params: z.object({}),
+  query: z.object({}),
+});

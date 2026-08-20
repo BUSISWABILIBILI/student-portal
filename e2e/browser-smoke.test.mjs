@@ -27,6 +27,7 @@ const demoUsers = {
     lastName: "Administrator",
     fullName: "Portal Administrator",
     email: "admin@studentportal.local",
+    password: "Admin@123",
     role: "admin",
     isActive: true,
   },
@@ -36,6 +37,7 @@ const demoUsers = {
     lastName: "Student",
     fullName: "Demo Student",
     email: "student@studentportal.local",
+    password: "Student@123",
     role: "student",
     isActive: true,
     studentProfile: {
@@ -96,6 +98,8 @@ const enrollments = [
 
 const results = [];
 
+const passwordResetTokens = new Map();
+
 const announcements = [
   {
     id: 1,
@@ -135,6 +139,17 @@ const readBody = (request) =>
   });
 
 const getFullName = (user) => `${user.firstName} ${user.lastName}`;
+
+const getPublicUser = (user) => {
+  const { password: _password, ...publicUser } = user;
+
+  return {
+    ...publicUser,
+    ...(user.studentProfile && {
+      studentProfile: { ...user.studentProfile },
+    }),
+  };
+};
 
 const getUserById = (userId) =>
   Object.values(demoUsers).find((user) => user.id === Number(userId));
@@ -209,10 +224,8 @@ const startMockApi = () =>
       if (route === "POST /api/auth/login") {
         const body = await readBody(request);
         const user = demoUsers[body.email];
-        const password =
-          user?.role === "admin" ? "Admin@123" : "Student@123";
 
-        if (!user || body.password !== password) {
+        if (!user || body.password !== user.password) {
           sendJson(response, 401, {
             success: false,
             message: "Invalid email or password.",
@@ -225,8 +238,54 @@ const startMockApi = () =>
           message: "Login successful.",
           data: {
             accessToken: `${user.role}-token`,
-            user,
+            user: getPublicUser(user),
           },
+        });
+        return;
+      }
+
+      if (route === "POST /api/auth/password-reset/request") {
+        const body = await readBody(request);
+        const user = demoUsers[body.email];
+        const resetToken = "mock-password-reset-token-1234567890";
+
+        if (user?.isActive) {
+          passwordResetTokens.set(resetToken, user.email);
+        }
+
+        sendJson(response, 200, {
+          success: true,
+          message:
+            "If an active account exists for that email, password reset instructions have been prepared.",
+          data: user?.isActive
+            ? {
+                resetToken,
+                expiresInMinutes: 60,
+              }
+            : {},
+        });
+        return;
+      }
+
+      if (route === "POST /api/auth/password-reset/confirm") {
+        const body = await readBody(request);
+        const email = passwordResetTokens.get(body.token);
+        const user = email ? demoUsers[email] : null;
+
+        if (!user) {
+          sendJson(response, 400, {
+            success: false,
+            message: "Password reset token is invalid or expired.",
+          });
+          return;
+        }
+
+        user.password = body.newPassword;
+        passwordResetTokens.delete(body.token);
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Password reset successfully.",
         });
         return;
       }
@@ -244,7 +303,30 @@ const startMockApi = () =>
       if (route === "GET /api/auth/me") {
         sendJson(response, 200, {
           success: true,
-          data: { user },
+          data: { user: getPublicUser(user) },
+        });
+        return;
+      }
+
+      if (route === "PATCH /api/auth/me/password") {
+        const body = await readBody(request);
+
+        if (body.currentPassword !== user.password) {
+          sendJson(response, 400, {
+            success: false,
+            message: "Current password is incorrect.",
+          });
+          return;
+        }
+
+        user.password = body.newPassword;
+
+        sendJson(response, 200, {
+          success: true,
+          message: "Password changed successfully.",
+          data: {
+            user: getPublicUser(user),
+          },
         });
         return;
       }
@@ -267,7 +349,9 @@ const startMockApi = () =>
               enrollments: { registered: 1 },
               results: { published: 1 },
               announcements: { published: 1 },
-              recentStudents: [demoUsers["student@studentportal.local"]],
+              recentStudents: [
+                getPublicUser(demoUsers["student@studentportal.local"]),
+              ],
             },
           },
         });
@@ -829,6 +913,7 @@ const startMockApi = () =>
           email: body.email,
           role: "student",
           isActive: true,
+          password: body.password,
           createdAt: new Date().toISOString(),
           studentProfile: {
             id: nextStudentProfileId,
@@ -854,7 +939,7 @@ const startMockApi = () =>
         sendJson(response, 201, {
           success: true,
           message: "Student account created successfully.",
-          data: { student },
+          data: { student: getPublicUser(student) },
         });
         return;
       }
@@ -882,7 +967,7 @@ const startMockApi = () =>
         sendJson(response, 200, {
           success: true,
           message: "Student profile updated successfully.",
-          data: { student: targetUser },
+          data: { student: getPublicUser(targetUser) },
         });
         return;
       }
@@ -912,7 +997,7 @@ const startMockApi = () =>
           message: targetUser.isActive
             ? "User account activated successfully."
             : "User account deactivated successfully.",
-          data: { user: targetUser },
+          data: { user: getPublicUser(targetUser) },
         });
         return;
       }
@@ -949,7 +1034,7 @@ const startMockApi = () =>
         sendJson(response, 200, {
           success: true,
           message: "User account updated successfully.",
-          data: { user: targetUser },
+          data: { user: getPublicUser(targetUser) },
         });
         return;
       }
@@ -976,7 +1061,7 @@ const startMockApi = () =>
         sendJson(response, 200, {
           success: true,
           data: {
-            users,
+            users: users.map(getPublicUser),
             pagination: {
               page: 1,
               limit: 50,
@@ -1460,9 +1545,29 @@ const run = async () => {
     ({ browser, page, userDataDir } = await launchBrowser(webUrl));
 
     await expectText(page, "Sign in");
+    await clickByText(page, "Forgot password?");
+    await expectText(page, "Reset password");
+    await fillField(page, "email", "student@studentportal.local");
+    await clickByText(page, "Prepare reset");
+    await page.waitFor(
+      `document.querySelector("textarea[readonly]")?.value === "mock-password-reset-token-1234567890"`,
+      "Expected password reset token in readonly field",
+    );
+    await clickByText(page, "Enter reset token");
+    await fillField(page, "token", "mock-password-reset-token-1234567890");
+    await fillField(page, "newPassword", "Student@456");
+    await clickByText(page, "Reset password");
+    await expectText(page, "Password reset successfully.");
+    await clickByText(page, "Back to sign in");
     await signIn(page, "admin@studentportal.local", "Admin@123");
     await expectText(page, "Institution dashboard");
     await expectText(page, "Users");
+    await clickByText(page, "Account");
+    await expectText(page, "Security");
+    await fillField(page, "currentPassword", "Admin@123");
+    await fillField(page, "newPassword", "Admin@456");
+    await clickByText(page, "Change password");
+    await expectText(page, "Password changed successfully.");
 
     await clickByText(page, "Courses");
     await expectText(page, "Course setup");
@@ -1554,7 +1659,7 @@ const run = async () => {
 
     await clickByText(page, "Sign out");
     await expectText(page, "Sign in");
-    await signIn(page, "student@studentportal.local", "Student@123");
+    await signIn(page, "student@studentportal.local", "Student@456");
     await expectText(page, "My dashboard");
     await expectNoText(page, "Users");
     await clickByText(page, "Courses");

@@ -120,6 +120,7 @@ td {
 }
 
 .login-form input,
+.login-form textarea,
 .resource-form input,
 .resource-form select,
 .resource-form textarea,
@@ -134,6 +135,7 @@ td {
   outline: none;
 }
 
+.login-form textarea,
 .resource-form textarea {
   resize: vertical;
 }
@@ -146,6 +148,7 @@ td {
 }
 
 .login-form input:focus,
+.login-form textarea:focus,
 .resource-form input:focus,
 .resource-form select:focus,
 .resource-form textarea:focus,
@@ -199,6 +202,19 @@ td {
   border: 1px solid #b6d9ca;
   background: #eef8f2;
   color: #17633c;
+}
+
+.auth-link,
+.auth-link-row {
+  color: #174d5d;
+  font-weight: 800;
+}
+
+.auth-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
 }
 
 .muted,

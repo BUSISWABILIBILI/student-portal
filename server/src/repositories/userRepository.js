@@ -60,6 +60,24 @@ export const findUserById = async (userId, connection = pool) => {
   return rows[0] || null;
 };
 
+export const findUserWithPasswordById = async (userId, connection = pool) => {
+  const [rows] = await connection.execute(
+    `
+      SELECT
+        ${userSelectColumns},
+        u.password_hash
+      FROM users AS u
+      LEFT JOIN student_profiles AS sp
+        ON sp.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+    `,
+    [userId],
+  );
+
+  return rows[0] || null;
+};
+
 export const createUser = async (
   { firstName, lastName, email, passwordHash, role },
   connection = pool,
@@ -81,12 +99,103 @@ export const createUser = async (
   return findUserById(result.insertId, connection);
 };
 
+export const updateUserPasswordHash = async (
+  userId,
+  passwordHash,
+  connection = pool,
+) => {
+  await connection.execute(
+    `
+      UPDATE users
+      SET password_hash = ?
+      WHERE id = ?
+    `,
+    [passwordHash, userId],
+  );
+
+  return findUserById(userId, connection);
+};
+
 export const updateLastLogin = async (userId) => {
   await pool.execute(
     `
       UPDATE users
       SET last_login_at = CURRENT_TIMESTAMP
       WHERE id = ?
+    `,
+    [userId],
+  );
+};
+
+export const createPasswordResetToken = async (
+  { userId, tokenHash, expiresAt },
+  connection = pool,
+) => {
+  await connection.execute(
+    `
+      INSERT INTO password_reset_tokens (
+        user_id,
+        token_hash,
+        expires_at
+      )
+      VALUES (?, ?, ?)
+    `,
+    [userId, tokenHash, expiresAt],
+  );
+};
+
+export const findActivePasswordResetToken = async (
+  tokenHash,
+  connection = pool,
+) => {
+  const [rows] = await connection.execute(
+    `
+      SELECT
+        prt.id,
+        prt.user_id,
+        prt.token_hash,
+        prt.expires_at,
+        prt.used_at,
+        u.password_hash,
+        u.is_active
+      FROM password_reset_tokens AS prt
+      INNER JOIN users AS u
+        ON u.id = prt.user_id
+      WHERE prt.token_hash = ?
+        AND prt.used_at IS NULL
+        AND prt.expires_at > CURRENT_TIMESTAMP
+      LIMIT 1
+    `,
+    [tokenHash],
+  );
+
+  return rows[0] || null;
+};
+
+export const markPasswordResetTokenUsed = async (
+  tokenId,
+  connection = pool,
+) => {
+  await connection.execute(
+    `
+      UPDATE password_reset_tokens
+      SET used_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `,
+    [tokenId],
+  );
+};
+
+export const expireOpenPasswordResetTokens = async (
+  userId,
+  connection = pool,
+) => {
+  await connection.execute(
+    `
+      UPDATE password_reset_tokens
+      SET used_at = CURRENT_TIMESTAMP
+      WHERE user_id = ?
+        AND used_at IS NULL
     `,
     [userId],
   );

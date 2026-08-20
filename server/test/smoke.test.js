@@ -9,8 +9,11 @@ import {
   updateAnnouncementSchema,
 } from "../src/validators/announcementValidators.js";
 import {
+  changePasswordSchema,
   createUserSchema,
   loginSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema,
 } from "../src/validators/authValidators.js";
 import {
   createCourseSchema,
@@ -73,6 +76,33 @@ describe("server smoke checks", () => {
         email: "student@example.com",
         password: "Student@123",
         role: "student",
+      },
+      params: {},
+      query: {},
+    });
+
+    expectValid(changePasswordSchema, {
+      body: {
+        currentPassword: "Admin@123",
+        newPassword: "Admin@456",
+      },
+      params: {},
+      query: {},
+    });
+
+    expectValid(requestPasswordResetSchema, {
+      body: {
+        email: "student@example.com",
+      },
+      params: {},
+      query: {},
+    });
+
+    expectValid(resetPasswordSchema, {
+      body: {
+        token:
+          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        newPassword: "Student@456",
       },
       params: {},
       query: {},

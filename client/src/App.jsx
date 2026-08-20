@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   BrowserRouter,
+  Link,
   Navigate,
   NavLink,
   Route,
@@ -25,6 +26,7 @@ const navigationItems = [
   { to: "/courses", label: "Courses", roles: ["admin", "student"] },
   { to: "/results", label: "Results", roles: ["admin", "student"] },
   { to: "/announcements", label: "Announcements", roles: ["admin", "student"] },
+  { to: "/account", label: "Account", roles: ["admin", "student"] },
   { to: "/users", label: "Users", roles: ["admin"] },
 ];
 
@@ -59,6 +61,17 @@ const ANNOUNCEMENT_FORM_INITIAL_STATE = {
   priority: "normal",
   publishAt: "",
   expiresAt: "",
+};
+const CHANGE_PASSWORD_INITIAL_STATE = {
+  currentPassword: "",
+  newPassword: "",
+};
+const RESET_REQUEST_INITIAL_STATE = {
+  email: "",
+};
+const RESET_PASSWORD_INITIAL_STATE = {
+  token: "",
+  newPassword: "",
 };
 const USER_FORM_INITIAL_STATE = {
   firstName: "",
@@ -284,6 +297,194 @@ function LoginPage() {
             {isSubmitting ? "Signing in" : "Sign in"}
           </button>
         </form>
+
+        <Link className="auth-link" to="/forgot-password">
+          Forgot password?
+        </Link>
+      </section>
+    </main>
+  );
+}
+
+function ForgotPasswordPage() {
+  const { isAuthenticated } = useAuth();
+  const [form, setForm] = useState(RESET_REQUEST_INITIAL_STATE);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setResetToken("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await api.post("/auth/password-reset/request", form);
+
+      setMessage(response.data.message);
+      setResetToken(response.data.data?.resetToken || "");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="login-page">
+      <section className="login-panel" aria-labelledby="forgot-title">
+        <div>
+          <p className="eyebrow">Student Portal</p>
+          <h1 id="forgot-title">Reset password</h1>
+          <p className="muted">
+            Enter your account email to prepare a password reset.
+          </p>
+        </div>
+
+        <form className="login-form" onSubmit={handleSubmit}>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              name="email"
+              onChange={handleChange}
+              required
+              type="email"
+              value={form.email}
+            />
+          </label>
+
+          {error && <p className="form-error">{error}</p>}
+          {message && <p className="inline-success">{message}</p>}
+          {resetToken && (
+            <label>
+              Reset token
+              <textarea readOnly rows="3" value={resetToken} />
+            </label>
+          )}
+
+          <button className="primary-button" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Preparing" : "Prepare reset"}
+          </button>
+        </form>
+
+        <div className="auth-link-row">
+          <Link className="auth-link" to="/reset-password">
+            Enter reset token
+          </Link>
+          <Link className="auth-link" to="/login">
+            Back to sign in
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function ResetPasswordPage() {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const [form, setForm] = useState(() => ({
+    ...RESET_PASSWORD_INITIAL_STATE,
+    token: new URLSearchParams(location.search).get("token") || "",
+  }));
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await api.post("/auth/password-reset/confirm", form);
+
+      setMessage(response.data.message);
+      setForm(RESET_PASSWORD_INITIAL_STATE);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="login-page">
+      <section className="login-panel" aria-labelledby="reset-title">
+        <div>
+          <p className="eyebrow">Student Portal</p>
+          <h1 id="reset-title">New password</h1>
+          <p className="muted">
+            Use your reset token to choose a new account password.
+          </p>
+        </div>
+
+        <form className="login-form" onSubmit={handleSubmit}>
+          <label>
+            Reset token
+            <textarea
+              name="token"
+              onChange={handleChange}
+              required
+              rows="3"
+              value={form.token}
+            />
+          </label>
+
+          <label>
+            New password
+            <input
+              autoComplete="new-password"
+              name="newPassword"
+              onChange={handleChange}
+              required
+              type="password"
+              value={form.newPassword}
+            />
+          </label>
+
+          {error && <p className="form-error">{error}</p>}
+          {message && <p className="inline-success">{message}</p>}
+
+          <button className="primary-button" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Resetting" : "Reset password"}
+          </button>
+        </form>
+
+        <Link className="auth-link" to="/login">
+          Back to sign in
+        </Link>
       </section>
     </main>
   );
@@ -344,6 +545,7 @@ function AppShell() {
             <Route element={<CoursesPage />} path="/courses" />
             <Route element={<ResultsPage />} path="/results" />
             <Route element={<AnnouncementsPage />} path="/announcements" />
+            <Route element={<AccountPage />} path="/account" />
             <Route
               element={
                 user.role === "admin" ? (
@@ -521,6 +723,89 @@ function DashboardPage() {
         ]}
       />
       <RecentResults results={dashboard.recentResults} />
+    </>
+  );
+}
+
+function AccountPage() {
+  const { user } = useAuth();
+  const [form, setForm] = useState(CHANGE_PASSWORD_INITIAL_STATE);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await api.patch("/auth/me/password", form);
+
+      setMessage(response.data.message);
+      setForm(CHANGE_PASSWORD_INITIAL_STATE);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <SectionHeader eyebrow="Security" title="Account" />
+      <section className="data-section account-security">
+        <div>
+          <p className="eyebrow">Signed in as</p>
+          <h2>{user.fullName}</h2>
+          <p className="muted">{user.email}</p>
+        </div>
+        <form className="resource-form" onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <label>
+              Current password
+              <input
+                autoComplete="current-password"
+                name="currentPassword"
+                onChange={handleChange}
+                required
+                type="password"
+                value={form.currentPassword}
+              />
+            </label>
+            <label>
+              New password
+              <input
+                autoComplete="new-password"
+                name="newPassword"
+                onChange={handleChange}
+                required
+                type="password"
+                value={form.newPassword}
+              />
+            </label>
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          {message && <p className="inline-success">{message}</p>}
+          <button
+            className="primary-button form-action"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "Changing" : "Change password"}
+          </button>
+        </form>
+      </section>
     </>
   );
 }
@@ -2368,6 +2653,8 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route element={<LoginPage />} path="/login" />
+          <Route element={<ForgotPasswordPage />} path="/forgot-password" />
+          <Route element={<ResetPasswordPage />} path="/reset-password" />
           <Route
             element={
               <ProtectedRoute>
