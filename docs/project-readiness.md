@@ -25,6 +25,7 @@
   deployment checks.
 - Request IDs are returned on responses and included in production JSON logs
   for troubleshooting.
+- Public login and password-reset auth endpoints are rate-limited.
 - A live database schema verifier compares MySQL metadata with
   `backend/database/schema.sql`.
 

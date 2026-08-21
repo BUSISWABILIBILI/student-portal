@@ -47,7 +47,7 @@ Request:
 The response is intentionally generic so unknown email addresses are not
 revealed. In non-production environments, `data.resetToken` is returned for
 local testing. Production should deliver the reset token through a trusted email
-provider.
+provider. Requests are rate-limited by client IP.
 
 ## Confirm Password Reset
 
@@ -64,7 +64,8 @@ Request:
 }
 ```
 
-Reset tokens expire after 60 minutes and can only be used once.
+Reset tokens expire after 60 minutes and can only be used once. Confirmation
+attempts are rate-limited by client IP.
 
 ## Current User
 

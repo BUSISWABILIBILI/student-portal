@@ -127,6 +127,37 @@ describe("HTTP auth and route behavior", () => {
     assert.equal(body.requestId, response.headers.get("x-request-id"));
   });
 
+  it("rate limits password reset requests before database access", async () => {
+    let latestResponse;
+    let latestBody;
+
+    for (let index = 0; index < 6; index += 1) {
+      const { response, body } = await request(
+        "/api/auth/password-reset/request",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: "not-an-email",
+          }),
+        },
+      );
+
+      latestResponse = response;
+      latestBody = body;
+    }
+
+    assert.equal(latestResponse.status, 429);
+    assert.equal(latestBody.success, false);
+    assert.equal(
+      latestBody.message,
+      "Too many password reset requests. Please try again later.",
+    );
+    assert.equal(
+      latestBody.requestId,
+      latestResponse.headers.get("x-request-id"),
+    );
+  });
+
   it("returns request identifiers for unknown routes", async () => {
     const { response, body } = await request("/api/does-not-exist");
 

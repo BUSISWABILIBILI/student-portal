@@ -23,27 +23,58 @@ import {
 
 const router = Router();
 
+const createRateLimitHandler = (message) => (req, res) => {
+  res.status(429).json({
+    success: false,
+    message,
+    ...(req.requestId && {
+      requestId: req.requestId,
+    }),
+  });
+};
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many login attempts. Please try again later.",
-  },
+  handler: createRateLimitHandler(
+    "Too many login attempts. Please try again later.",
+  ),
+});
+
+const passwordResetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  handler: createRateLimitHandler(
+    "Too many password reset requests. Please try again later.",
+  ),
+});
+
+const passwordResetConfirmLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  handler: createRateLimitHandler(
+    "Too many password reset attempts. Please try again later.",
+  ),
 });
 
 router.post("/login", loginLimiter, validateRequest(loginSchema), login);
 
 router.post(
   "/password-reset/request",
+  passwordResetRequestLimiter,
   validateRequest(requestPasswordResetSchema),
   requestPasswordReset,
 );
 
 router.post(
   "/password-reset/confirm",
+  passwordResetConfirmLimiter,
   validateRequest(resetPasswordSchema),
   resetPassword,
 );

@@ -80,6 +80,12 @@ CLIENT_URL=https://portal.example.edu
 Do not use `*` with credentials. If the frontend URL changes, update
 `CLIENT_URL`, restart the API, and verify browser login again.
 
+## Auth Abuse Controls
+
+Public login and password-reset routes are rate-limited by client IP. Keep
+these limits enabled in production and make sure reverse proxies preserve the
+originating client address before traffic reaches the API.
+
 ## Shutdown
 
 The backend handles `SIGINT` and `SIGTERM` by closing the HTTP server and MySQL
