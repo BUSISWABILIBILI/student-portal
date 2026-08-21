@@ -1688,6 +1688,13 @@ const run = async () => {
     await clickButtonNearText(page, "DEV101", "Publish");
     await expectText(page, "Result published successfully.");
     await expectText(page, "pass");
+    await fillField(page, "search", "DEV101");
+    await selectField(page, "publicationStatus", "published");
+    await selectField(page, "outcome", "pass");
+    await selectField(page, "sortBy", "courseCode");
+    await selectField(page, "sortOrder", "asc");
+    await expectText(page, "DEV101");
+    await clickByText(page, "Reset filters");
     await clickByText(page, "Announcements");
     await expectText(page, "New announcement");
     await fillField(page, "title", "E2E notice");
@@ -1751,6 +1758,7 @@ const run = async () => {
     await expectText(page, "Course registration cancelled successfully.");
     await clickByText(page, "Results");
     await expectText(page, "Published results");
+    await selectField(page, "outcome", "pass");
     await expectText(page, "DEV101");
     await clickByText(page, "Announcements");
     await expectText(page, "Registration notice");

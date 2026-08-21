@@ -94,6 +94,13 @@ const USER_FORM_INITIAL_STATE = {
   postalCode: "",
   admissionDate: "",
 };
+const RESULT_FILTER_INITIAL_STATE = {
+  search: "",
+  outcome: "",
+  publicationStatus: "",
+  sortBy: "createdAt",
+  sortOrder: "desc",
+};
 
 const formatNumber = (value) => Number(value || 0).toLocaleString();
 
@@ -1341,7 +1348,11 @@ function AdminCoursePanel({ onCreated }) {
         </label>
         {error && <p className="form-error">{error}</p>}
         {message && <p className="inline-success">{message}</p>}
-        <button className="primary-button form-action" disabled={isSubmitting} type="submit">
+        <button
+          className="primary-button form-action"
+          disabled={isSubmitting}
+          type="submit"
+        >
           {isSubmitting ? "Creating" : "Create course"}
         </button>
       </form>
@@ -1371,7 +1382,13 @@ function getStudentCourseStatus({ course, isRegistered, selectedPeriod }) {
 
 function ResultsPage() {
   const { user } = useAuth();
-  const path = user.role === "admin" ? "/results?limit=20" : "/results/me";
+  const [resultFilters, setResultFilters] = useState(
+    RESULT_FILTER_INITIAL_STATE,
+  );
+  const path =
+    user.role === "admin"
+      ? buildAdminResultPath(resultFilters)
+      : buildStudentResultPath(resultFilters);
   const resultResource = useApiResource(path, EMPTY_RESULTS);
   const enrollmentResource = useApiResource(
     "/enrollments?limit=100&status=registered&resultStatus=pending&sortBy=studentName&sortOrder=asc",
@@ -1392,6 +1409,19 @@ function ResultsPage() {
   const error =
     resultResource.error ||
     (user.role === "admin" ? enrollmentResource.error : "");
+
+  const handleFilterChange = (event) => {
+    const { name, value } = event.target;
+
+    setResultFilters((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleResetFilters = () => {
+    setResultFilters(RESULT_FILTER_INITIAL_STATE);
+  };
 
   const handleResultSaved = (message) => {
     setNotice(message);
@@ -1428,6 +1458,12 @@ function ResultsPage() {
   return (
     <>
       <SectionHeader eyebrow="Academic" title="Results" />
+      <ResultFilterPanel
+        filters={resultFilters}
+        onChange={handleFilterChange}
+        onReset={handleResetFilters}
+        role={user.role}
+      />
       {user.role === "admin" && (
         <AdminResultPanel
           editingResult={editingResult}
@@ -1522,6 +1558,125 @@ function ResultsPage() {
       )}
     </>
   );
+}
+
+function ResultFilterPanel({ filters, onChange, onReset, role }) {
+  const hasActiveFilters =
+    filters.search ||
+    filters.outcome ||
+    filters.publicationStatus ||
+    filters.sortBy !== RESULT_FILTER_INITIAL_STATE.sortBy ||
+    filters.sortOrder !== RESULT_FILTER_INITIAL_STATE.sortOrder;
+
+  return (
+    <section className="data-section filter-panel" aria-label="Result filters">
+      <div className="filter-grid">
+        {role === "admin" && (
+          <label>
+            Search
+            <input
+              name="search"
+              onChange={onChange}
+              placeholder="Student, number, course"
+              value={filters.search}
+            />
+          </label>
+        )}
+        <label>
+          Outcome
+          <select name="outcome" onChange={onChange} value={filters.outcome}>
+            <option value="">All outcomes</option>
+            <option value="pass">Pass</option>
+            <option value="fail">Fail</option>
+            <option value="incomplete">Incomplete</option>
+          </select>
+        </label>
+        {role === "admin" && (
+          <label>
+            Publication
+            <select
+              name="publicationStatus"
+              onChange={onChange}
+              value={filters.publicationStatus}
+            >
+              <option value="">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+            </select>
+          </label>
+        )}
+        {role === "admin" && (
+          <>
+            <label>
+              Sort by
+              <select name="sortBy" onChange={onChange} value={filters.sortBy}>
+                <option value="createdAt">Created date</option>
+                <option value="studentName">Student name</option>
+                <option value="studentNumber">Student number</option>
+                <option value="courseCode">Course code</option>
+                <option value="finalMark">Final mark</option>
+              </select>
+            </label>
+            <label>
+              Order
+              <select
+                name="sortOrder"
+                onChange={onChange}
+                value={filters.sortOrder}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </label>
+          </>
+        )}
+      </div>
+      <button
+        className="ghost-button compact-button"
+        disabled={!hasActiveFilters}
+        onClick={onReset}
+        type="button"
+      >
+        Reset filters
+      </button>
+    </section>
+  );
+}
+
+function buildAdminResultPath(filters) {
+  const params = new URLSearchParams({
+    limit: "20",
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder,
+  });
+
+  const search = filters.search.trim();
+
+  if (search) {
+    params.set("search", search);
+  }
+
+  if (filters.outcome) {
+    params.set("outcome", filters.outcome);
+  }
+
+  if (filters.publicationStatus) {
+    params.set("publicationStatus", filters.publicationStatus);
+  }
+
+  return `/results?${params.toString()}`;
+}
+
+function buildStudentResultPath(filters) {
+  const params = new URLSearchParams();
+
+  if (filters.outcome) {
+    params.set("outcome", filters.outcome);
+  }
+
+  const query = params.toString();
+
+  return query ? `/results/me?${query}` : "/results/me";
 }
 
 function AdminResultPanel({

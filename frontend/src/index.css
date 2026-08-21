@@ -111,7 +111,8 @@ td {
 
 .login-form label,
 .resource-form label,
-.compact-field {
+.compact-field,
+.filter-panel label {
   display: grid;
   gap: 8px;
   color: #34444c;
@@ -124,7 +125,9 @@ td {
 .resource-form input,
 .resource-form select,
 .resource-form textarea,
-.compact-field select {
+.compact-field select,
+.filter-panel input,
+.filter-panel select {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
@@ -152,7 +155,9 @@ td {
 .resource-form input:focus,
 .resource-form select:focus,
 .resource-form textarea:focus,
-.compact-field select:focus {
+.compact-field select:focus,
+.filter-panel input:focus,
+.filter-panel select:focus {
   border-color: #247489;
   box-shadow: 0 0 0 3px rgba(36, 116, 137, 0.16);
 }
@@ -488,6 +493,17 @@ td {
   gap: 14px;
 }
 
+.filter-panel {
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr));
+  gap: 14px;
+}
+
 .results-form-grid {
   grid-template-columns: minmax(260px, 2fr) repeat(2, minmax(120px, 1fr));
 }
@@ -697,10 +713,12 @@ td {
   .stat-grid,
   .course-grid,
   .form-grid,
+  .filter-grid,
   .results-form-grid,
   .announcement-form-grid,
   .user-form-grid,
   .address-form-grid,
+  .filter-panel,
   .announcement-list-item {
     grid-template-columns: 1fr;
   }
