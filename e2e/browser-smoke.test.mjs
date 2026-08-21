@@ -827,12 +827,33 @@ const startMockApi = () =>
       }
 
       if (route === "GET /api/enrollments/me") {
+        const status = url.searchParams.get("status");
+        const academicPeriodId = Number(
+          url.searchParams.get("academicPeriodId"),
+        );
+        const visibleEnrollments = enrollments.filter((enrollment) => {
+          if (status && enrollment.status !== status) {
+            return false;
+          }
+
+          if (
+            academicPeriodId &&
+            enrollment.academicPeriod.id !== academicPeriodId
+          ) {
+            return false;
+          }
+
+          return true;
+        });
+
         sendJson(response, 200, {
           success: true,
           data: {
-            courses: enrollments.map((enrollment) => ({
+            courses: visibleEnrollments.map((enrollment) => ({
               id: enrollment.id,
               status: enrollment.status,
+              registeredAt: enrollment.registeredAt,
+              cancelledAt: enrollment.cancelledAt,
               course: syncCourseCapacity(enrollment.course),
               academicPeriod: enrollment.academicPeriod,
             })),
@@ -2132,7 +2153,6 @@ const run = async () => {
     await expectText(page, "Recent announcements");
     await expectText(page, "Registration notice");
     await expectNoText(page, "Users");
-    await expectNoText(page, "Enrollments");
     await clickByText(page, "Courses");
     await expectText(page, "Academic period");
     await fillField(page, "courseSearch", "E2E102");
@@ -2144,6 +2164,18 @@ const run = async () => {
     await expectText(page, "Registered for 2026 First Semester");
     await clickButtonNearText(page, "E2E102", "Cancel registration");
     await expectText(page, "Course registration cancelled successfully.");
+    await clickByText(page, "Reset filters");
+    await expectText(page, "DEV101");
+    await clickByText(page, "Enrollments");
+    await expectText(page, "My enrollments");
+    await expectText(page, "DEV101");
+    await expectText(page, "E2E102");
+    await selectField(page, "myEnrollmentStatus", "registered");
+    await expectText(page, "DEV101");
+    await waitForNoText(page, "E2E102");
+    await selectField(page, "myEnrollmentStatus", "cancelled");
+    await expectText(page, "E2E102");
+    await waitForNoText(page, "DEV101");
     await clickByText(page, "Reset filters");
     await expectText(page, "DEV101");
     await clickByText(page, "Results");
