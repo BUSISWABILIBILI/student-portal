@@ -132,9 +132,10 @@ Run backend tests:
 npm run backend:test
 ```
 
-Run frontend lint and build:
+Run frontend tests, lint, and build:
 
 ```powershell
+npm run frontend:test
 npm run frontend:lint
 npm run frontend:build
 ```

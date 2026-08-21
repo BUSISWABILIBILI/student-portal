@@ -9,12 +9,14 @@
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:lint": "npm --prefix frontend run lint",
     "frontend:preview": "npm --prefix frontend run preview",
+    "frontend:test": "npm --prefix frontend run test",
     "backend:dev": "npm --prefix backend run dev",
     "backend:start": "npm --prefix backend run start",
     "backend:test": "npm --prefix backend run test",
     "client:build": "npm run frontend:build",
     "client:dev": "npm run frontend:dev",
     "client:lint": "npm run frontend:lint",
+    "client:test": "npm run frontend:test",
     "server:dev": "npm run backend:dev",
     "server:start": "npm run backend:start",
     "server:test": "npm run backend:test",
@@ -23,6 +25,6 @@
     "db:verify": "npm --prefix backend run db:verify",
     "seed:users": "npm --prefix backend run seed:users",
     "e2e": "node e2e/browser-smoke.test.mjs",
-    "check": "npm run backend:test && npm run frontend:lint && npm run frontend:build && npm run e2e"
+    "check": "npm run backend:test && npm run frontend:test && npm run frontend:lint && npm run frontend:build && npm run e2e"
   }
 }

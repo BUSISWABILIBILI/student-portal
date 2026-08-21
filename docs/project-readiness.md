@@ -12,8 +12,9 @@
 - Seed data targets the current schema and includes demo academic data.
 - Backend import, validator, auth, and protected route smoke tests pass.
 - Frontend lint and production build pass.
-- GitHub Actions CI runs backend tests, frontend lint, frontend build, and browser
-  smoke coverage on pushes and pull requests targeting `main`.
+- GitHub Actions CI runs backend tests, frontend tests, frontend lint,
+  frontend build, and browser smoke coverage on pushes and pull requests
+  targeting `main`.
 - The React portal covers the main admin and student workflows:
   authentication, dashboards, courses, registration, results, announcements,
   and user management.
@@ -35,6 +36,7 @@ Run these from the repository root:
 
 ```powershell
 npm run backend:test
+npm run frontend:test
 npm run frontend:lint
 npm run frontend:build
 npm run e2e
