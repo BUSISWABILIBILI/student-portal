@@ -85,6 +85,12 @@ Create or refresh demo user accounts:
 npm run seed:users
 ```
 
+Verify that the live database still matches the committed schema:
+
+```powershell
+npm run db:verify
+```
+
 Demo accounts:
 
 ```text
@@ -137,6 +143,12 @@ Run all checks from the repository root:
 
 ```powershell
 npm run check
+```
+
+Run the live database schema check when MySQL is available:
+
+```powershell
+npm run db:verify
 ```
 
 GitHub Actions runs the same verification set on pushes and pull requests

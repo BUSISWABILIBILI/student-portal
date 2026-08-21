@@ -4,6 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "db:verify": "node src/scripts/verifyDatabaseSchema.js",
     "dev": "nodemon src/server.js",
     "migrate": "node src/scripts/runMigrations.js",
     "migrate:status": "node src/scripts/runMigrations.js --status",

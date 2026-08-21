@@ -120,12 +120,14 @@ For an existing database, check pending migrations before deployment:
 ```powershell
 npm run db:migrate:status
 npm run db:migrate -- --dry-run
+npm run db:verify
 ```
 
 Apply pending migrations during a controlled deployment window:
 
 ```powershell
 npm run db:migrate
+npm run db:verify
 ```
 
 For a new database created from `backend/database/schema.sql`, record the
@@ -194,6 +196,7 @@ Before release:
 - Confirm `CLIENT_URL` matches the deployed frontend origin.
 - Confirm `VITE_API_URL` points to the production API.
 - Run `npm run db:migrate -- --dry-run`.
+- Run `npm run db:verify` against the target database.
 - Take and verify a MySQL backup.
 - Run `npm run backend:test`, `npm run frontend:lint`,
   `npm run frontend:build`,

@@ -35,3 +35,16 @@ npm run db:migrate -- --baseline
 
 Only use `--baseline` after confirming the live database already matches the
 schema expected by the application.
+
+## Schema Verification
+
+After applying migrations or restoring a database, compare the live MySQL
+schema with `backend/database/schema.sql`:
+
+```powershell
+npm run db:verify
+```
+
+The verifier checks required tables, columns, indexes, foreign keys, and check
+constraints. It also reports unexpected application columns or tables while
+allowing the migration runner's `schema_migrations` table.

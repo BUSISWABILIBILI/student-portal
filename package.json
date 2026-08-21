@@ -20,6 +20,7 @@
     "server:test": "npm run backend:test",
     "db:migrate": "npm --prefix backend run migrate",
     "db:migrate:status": "npm --prefix backend run migrate:status",
+    "db:verify": "npm --prefix backend run db:verify",
     "seed:users": "npm --prefix backend run seed:users",
     "e2e": "node e2e/browser-smoke.test.mjs",
     "check": "npm run backend:test && npm run frontend:lint && npm run frontend:build && npm run e2e"

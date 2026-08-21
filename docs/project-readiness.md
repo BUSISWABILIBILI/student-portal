@@ -25,6 +25,8 @@
   deployment checks.
 - Request IDs are returned on responses and included in production JSON logs
   for troubleshooting.
+- A live database schema verifier compares MySQL metadata with
+  `backend/database/schema.sql`.
 
 ## Verification Commands
 
@@ -38,6 +40,9 @@ npm run e2e
 ```
 
 The root `npm run check` script runs those checks in sequence.
+
+When MySQL is available, run `npm run db:verify` to confirm the live database
+matches the committed schema.
 
 `npm run e2e` starts the frontend and a mock API on isolated local ports,
 launches a headless Chrome or Edge browser, verifies the core admin and student
