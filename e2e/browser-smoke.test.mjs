@@ -400,15 +400,73 @@ const startMockApi = () =>
       }
 
       if (route === "GET /api/courses") {
-        const visibleCourses =
+        const search = (url.searchParams.get("search") || "")
+          .trim()
+          .toLowerCase();
+        const department = (url.searchParams.get("department") || "")
+          .trim()
+          .toLowerCase();
+        const status = url.searchParams.get("status");
+        const availability = url.searchParams.get("availability");
+        const sortBy = url.searchParams.get("sortBy") || "courseCode";
+        const sortOrder = url.searchParams.get("sortOrder") || "asc";
+        let visibleCourses =
           user.role === "student"
             ? courses.filter((course) => course.isActive)
             : courses;
 
+        visibleCourses = visibleCourses.map(syncCourseCapacity);
+
+        if (search) {
+          visibleCourses = visibleCourses.filter((course) =>
+            [
+              course.courseCode,
+              course.courseName,
+              course.description,
+              course.department,
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(search),
+          );
+        }
+
+        if (department) {
+          visibleCourses = visibleCourses.filter(
+            (course) => (course.department || "").toLowerCase() === department,
+          );
+        }
+
+        if (status === "active" || status === "inactive") {
+          visibleCourses = visibleCourses.filter(
+            (course) => course.isActive === (status === "active"),
+          );
+        }
+
+        if (availability === "available") {
+          visibleCourses = visibleCourses.filter((course) => !course.isFull);
+        }
+
+        if (availability === "full") {
+          visibleCourses = visibleCourses.filter((course) => course.isFull);
+        }
+
+        visibleCourses = [...visibleCourses].sort((left, right) => {
+          const leftValue = left[sortBy] ?? left.courseCode ?? "";
+          const rightValue = right[sortBy] ?? right.courseCode ?? "";
+          const direction = sortOrder === "desc" ? -1 : 1;
+
+          if (typeof leftValue === "number" && typeof rightValue === "number") {
+            return (leftValue - rightValue) * direction;
+          }
+
+          return String(leftValue).localeCompare(String(rightValue)) * direction;
+        });
+
         sendJson(response, 200, {
           success: true,
           data: {
-            courses: visibleCourses.map(syncCourseCapacity),
+            courses: visibleCourses,
             pagination: {
               page: 1,
               limit: 50,
@@ -1669,6 +1727,16 @@ const run = async () => {
     await expectText(page, "Inactive");
     await clickButtonNearText(page, "E2E102", "Activate");
     await expectText(page, "Course updated successfully.");
+    await fillField(page, "courseSearch", "E2E102");
+    await fillField(page, "courseDepartment", "Quality Assurance");
+    await selectField(page, "courseStatus", "active");
+    await selectField(page, "courseAvailability", "available");
+    await selectField(page, "courseSortBy", "courseCode");
+    await selectField(page, "courseSortOrder", "asc");
+    await expectText(page, "E2E102");
+    await waitForNoText(page, "DEV101");
+    await clickByText(page, "Reset filters");
+    await expectText(page, "DEV101");
     await clickByText(page, "Results");
     await expectText(page, "Capture result");
     await selectField(page, "enrollmentId", "1");
@@ -1751,11 +1819,17 @@ const run = async () => {
     await expectNoText(page, "Users");
     await clickByText(page, "Courses");
     await expectText(page, "Academic period");
+    await fillField(page, "courseSearch", "E2E102");
+    await selectField(page, "courseAvailability", "available");
+    await expectText(page, "E2E102");
+    await waitForNoText(page, "DEV101");
     await clickButtonNearText(page, "E2E102", "Register");
     await expectText(page, "Course registration completed successfully.");
     await expectText(page, "Registered for 2026 First Semester");
     await clickButtonNearText(page, "E2E102", "Cancel registration");
     await expectText(page, "Course registration cancelled successfully.");
+    await clickByText(page, "Reset filters");
+    await expectText(page, "DEV101");
     await clickByText(page, "Results");
     await expectText(page, "Published results");
     await selectField(page, "outcome", "pass");

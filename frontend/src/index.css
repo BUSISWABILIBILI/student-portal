@@ -500,7 +500,7 @@ td {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px;
 }
 

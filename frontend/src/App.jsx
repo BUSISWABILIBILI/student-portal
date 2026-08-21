@@ -51,6 +51,14 @@ const COURSE_FORM_INITIAL_STATE = {
   isActive: true,
   description: "",
 };
+const COURSE_FILTER_INITIAL_STATE = {
+  courseSearch: "",
+  courseDepartment: "",
+  courseStatus: "",
+  courseAvailability: "",
+  courseSortBy: "courseCode",
+  courseSortOrder: "asc",
+};
 const RESULT_FORM_INITIAL_STATE = {
   enrollmentId: "",
   courseworkMark: "",
@@ -936,13 +944,14 @@ function RecentResults({ results }) {
 function CoursesPage() {
   const { user } = useAuth();
   const [selectedAcademicPeriodId, setSelectedAcademicPeriodId] = useState("");
+  const [courseFilters, setCourseFilters] = useState(
+    COURSE_FILTER_INITIAL_STATE,
+  );
   const [notice, setNotice] = useState("");
   const [actionError, setActionError] = useState("");
   const [busyKey, setBusyKey] = useState("");
-  const courseResource = useApiResource(
-    "/courses?limit=50&sortBy=courseCode",
-    EMPTY_COURSES,
-  );
+  const coursePath = buildCoursePath(courseFilters, user.role);
+  const courseResource = useApiResource(coursePath, EMPTY_COURSES);
   const periodResource = useApiResource(
     "/academic-periods/active",
     EMPTY_ACADEMIC_PERIODS,
@@ -998,6 +1007,19 @@ function CoursesPage() {
       setSelectedAcademicPeriodId(String(academicPeriods[0].id));
     }
   }, [academicPeriods, selectedAcademicPeriodId, user.role]);
+
+  const handleCourseFilterChange = (event) => {
+    const { name, value } = event.target;
+
+    setCourseFilters((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleResetCourseFilters = () => {
+    setCourseFilters(COURSE_FILTER_INITIAL_STATE);
+  };
 
   const refreshCourseWorkflow = () => {
     courseResource.refetch();
@@ -1104,6 +1126,12 @@ function CoursesPage() {
           </label>
         )}
       </SectionHeader>
+      <CourseFilterPanel
+        filters={courseFilters}
+        onChange={handleCourseFilterChange}
+        onReset={handleResetCourseFilters}
+        role={user.role}
+      />
       {user.role === "admin" && (
         <AdminCoursePanel onCreated={courseResource.refetch} />
       )}
@@ -1226,6 +1254,129 @@ function CoursesPage() {
       )}
     </>
   );
+}
+
+function CourseFilterPanel({ filters, onChange, onReset, role }) {
+  const hasActiveFilters =
+    filters.courseSearch ||
+    filters.courseDepartment ||
+    filters.courseAvailability ||
+    (role === "admin" && filters.courseStatus) ||
+    filters.courseSortBy !== COURSE_FILTER_INITIAL_STATE.courseSortBy ||
+    filters.courseSortOrder !== COURSE_FILTER_INITIAL_STATE.courseSortOrder;
+
+  return (
+    <section className="data-section filter-panel" aria-label="Course filters">
+      <div className="filter-grid">
+        <label>
+          Search
+          <input
+            name="courseSearch"
+            onChange={onChange}
+            placeholder="Code, name, description"
+            value={filters.courseSearch}
+          />
+        </label>
+        <label>
+          Department
+          <input
+            name="courseDepartment"
+            onChange={onChange}
+            placeholder="Exact department"
+            value={filters.courseDepartment}
+          />
+        </label>
+        <label>
+          Availability
+          <select
+            name="courseAvailability"
+            onChange={onChange}
+            value={filters.courseAvailability}
+          >
+            <option value="">All courses</option>
+            <option value="available">Available</option>
+            <option value="full">Full</option>
+          </select>
+        </label>
+        {role === "admin" && (
+          <label>
+            Status
+            <select
+              name="courseStatus"
+              onChange={onChange}
+              value={filters.courseStatus}
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+        )}
+        <label>
+          Sort by
+          <select
+            name="courseSortBy"
+            onChange={onChange}
+            value={filters.courseSortBy}
+          >
+            <option value="courseCode">Course code</option>
+            <option value="courseName">Course name</option>
+            <option value="department">Department</option>
+            <option value="creditValue">Credits</option>
+            <option value="capacity">Capacity</option>
+            <option value="createdAt">Created date</option>
+          </select>
+        </label>
+        <label>
+          Order
+          <select
+            name="courseSortOrder"
+            onChange={onChange}
+            value={filters.courseSortOrder}
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </label>
+      </div>
+      <button
+        className="ghost-button compact-button"
+        disabled={!hasActiveFilters}
+        onClick={onReset}
+        type="button"
+      >
+        Reset filters
+      </button>
+    </section>
+  );
+}
+
+function buildCoursePath(filters, role) {
+  const params = new URLSearchParams({
+    limit: "50",
+    sortBy: filters.courseSortBy,
+    sortOrder: filters.courseSortOrder,
+  });
+  const search = filters.courseSearch.trim();
+  const department = filters.courseDepartment.trim();
+
+  if (search) {
+    params.set("search", search);
+  }
+
+  if (department) {
+    params.set("department", department);
+  }
+
+  if (filters.courseAvailability) {
+    params.set("availability", filters.courseAvailability);
+  }
+
+  if (role === "admin" && filters.courseStatus) {
+    params.set("status", filters.courseStatus);
+  }
+
+  return `/courses?${params.toString()}`;
 }
 
 function AdminCoursePanel({ onCreated }) {
