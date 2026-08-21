@@ -1,18 +1,5 @@
 import mysql from "mysql2/promise";
 
-const requiredEnvironmentVariables = [
-  "DB_HOST",
-  "DB_PORT",
-  "DB_USER",
-  "DB_NAME",
-];
-
-for (const variableName of requiredEnvironmentVariables) {
-  if (!process.env[variableName]) {
-    throw new Error(`Missing required environment variable: ${variableName}`);
-  }
-}
-
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
@@ -41,5 +28,7 @@ export const testDatabaseConnection = async () => {
   await checkDatabaseConnection();
   console.log("MySQL database connected successfully.");
 };
+
+export const closeDatabaseConnection = () => pool.end();
 
 export default pool;

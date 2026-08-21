@@ -80,6 +80,13 @@ CLIENT_URL=https://portal.example.edu
 Do not use `*` with credentials. If the frontend URL changes, update
 `CLIENT_URL`, restart the API, and verify browser login again.
 
+## Shutdown
+
+The backend handles `SIGINT` and `SIGTERM` by closing the HTTP server and MySQL
+connection pool before exiting. Configure process managers and hosting
+platforms to send `SIGTERM` and allow at least 10 seconds for graceful shutdown
+before force-killing the process.
+
 ## MySQL Access
 
 Use a dedicated MySQL user for the application. Grant only the permissions the

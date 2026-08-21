@@ -32,6 +32,7 @@ import {
 import formatUser from "../src/utils/formatUser.js";
 import { createReadinessCheck } from "../src/controllers/healthController.js";
 import { validateEnvironment } from "../src/config/environment.js";
+import { createGracefulShutdown } from "../src/utils/gracefulShutdown.js";
 
 const expectValid = (schema, input) => {
   const result = schema.safeParse(input);
@@ -164,6 +165,65 @@ describe("backend smoke checks", () => {
         }),
       /JWT_SECRET must be at least 32 characters/,
     );
+  });
+
+  it("closes HTTP and database resources during graceful shutdown", async () => {
+    const events = [];
+    const exitCodes = [];
+    const logger = {
+      error: () => {},
+      log: () => {},
+      warn: () => {},
+    };
+    const server = {
+      close(callback) {
+        events.push("http");
+        callback();
+      },
+    };
+    const shutdown = createGracefulShutdown({
+      closeDatabase: async () => {
+        events.push("database");
+      },
+      exit: (code) => {
+        exitCodes.push(code);
+      },
+      logger,
+      server,
+    });
+
+    await shutdown("SIGTERM");
+
+    assert.deepEqual(events, ["http", "database"]);
+    assert.deepEqual(exitCodes, [0]);
+  });
+
+  it("exits with failure when graceful shutdown cannot close the server", async () => {
+    const exitCodes = [];
+    const logger = {
+      error: () => {},
+      log: () => {},
+      warn: () => {},
+    };
+    const server = {
+      close(callback) {
+        callback(new Error("HTTP close failed."));
+      },
+    };
+    const shutdown = createGracefulShutdown({
+      closeDatabase: async () => {
+        throw new Error("Should not close database after HTTP close fails.");
+      },
+      exit: (code) => {
+        exitCodes.push(code);
+      },
+      logger,
+      server,
+    });
+
+    await shutdown("SIGTERM");
+
+    assert.deepEqual(exitCodes, [1]);
   });
 
   it("parses authentication payloads", () => {

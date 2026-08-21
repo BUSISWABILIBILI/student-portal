@@ -1,8 +1,12 @@
 import "dotenv/config";
 
 import app from "./app.js";
-import { testDatabaseConnection } from "./config/database.js";
+import {
+  closeDatabaseConnection,
+  testDatabaseConnection,
+} from "./config/database.js";
 import { validateEnvironment } from "./config/environment.js";
+import { createGracefulShutdown } from "./utils/gracefulShutdown.js";
 
 const port = Number(process.env.PORT) || 5000;
 
@@ -15,14 +19,10 @@ const startServer = async () => {
       console.log(`Student Portal API running on port ${port}`);
     });
 
-    const shutdown = (signal) => {
-      console.log(`${signal} received. Closing server...`);
-
-      server.close(() => {
-        console.log("Server closed.");
-        process.exit(0);
-      });
-    };
+    const shutdown = createGracefulShutdown({
+      closeDatabase: closeDatabaseConnection,
+      server,
+    });
 
     process.on("SIGINT", () => shutdown("SIGINT"));
 
