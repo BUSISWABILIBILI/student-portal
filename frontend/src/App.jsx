@@ -2260,7 +2260,14 @@ function ResultsPage() {
           message="Result records will appear here once they are captured and published."
         />
       )}
-      {!isLoading && !error && results.length > 0 && (
+      {!isLoading &&
+        !error &&
+        user.role === "student" &&
+        results.length > 0 && <TranscriptResults results={results} />}
+      {!isLoading &&
+        !error &&
+        user.role === "admin" &&
+        results.length > 0 && (
         <div className="table-wrap">
           <table>
             <thead>
@@ -2333,6 +2340,98 @@ function ResultsPage() {
       )}
     </>
   );
+}
+
+function TranscriptResults({ results }) {
+  const transcriptPeriods = groupResultsByAcademicPeriod(results);
+
+  return (
+    <section
+      className="dashboard-section"
+      aria-labelledby="transcript-results-title"
+    >
+      <h2 id="transcript-results-title">Transcript results</h2>
+      {transcriptPeriods.map((period) => (
+        <div className="data-section" key={period.key}>
+          <div className="editor-heading">
+            <div>
+              <p className="eyebrow">Academic period</p>
+              <h3>{period.label}</h3>
+            </div>
+            <span className="pill muted-pill">
+              {formatNumber(period.credits)} credits
+            </span>
+          </div>
+          <div className="table-wrap plain-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Course</th>
+                  <th>Credits</th>
+                  <th>Coursework</th>
+                  <th>Exam</th>
+                  <th>Final</th>
+                  <th>Grade</th>
+                  <th>Grade points</th>
+                  <th>Outcome</th>
+                  <th>Published</th>
+                </tr>
+              </thead>
+              <tbody>
+                {period.results.map((result) => (
+                  <tr key={result.id}>
+                    <td>
+                      <strong>{result.course.courseCode}</strong>
+                      <span className="table-subtext">
+                        {result.course.courseName}
+                      </span>
+                    </td>
+                    <td>{formatNumber(result.course.creditValue)}</td>
+                    <td>{formatMark(result.courseworkMark)}</td>
+                    <td>{formatMark(result.examinationMark)}</td>
+                    <td>{formatMark(result.finalMark)}</td>
+                    <td>{result.grade || "Pending"}</td>
+                    <td>{formatGradePoint(result.gradePoint)}</td>
+                    <td>
+                      <span className={getOutcomePillClass(result)}>
+                        {result.outcome}
+                      </span>
+                    </td>
+                    <td>{formatOptionalShortDate(result.publishedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function groupResultsByAcademicPeriod(results) {
+  const periods = new Map();
+
+  results.forEach((result) => {
+    const key = result.academicPeriod.id || result.academicPeriod.label;
+    const label = result.academicPeriod.label || "Unknown period";
+
+    if (!periods.has(key)) {
+      periods.set(key, {
+        key,
+        label,
+        credits: 0,
+        results: [],
+      });
+    }
+
+    const period = periods.get(key);
+
+    period.credits += Number(result.course.creditValue || 0);
+    period.results.push(result);
+  });
+
+  return [...periods.values()];
 }
 
 function ResultFilterPanel({ filters, onChange, onReset, role }) {
@@ -2643,6 +2742,17 @@ function formatMark(value) {
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   })}%`;
+}
+
+function formatGradePoint(value) {
+  if (value === null || value === undefined) {
+    return "Pending";
+  }
+
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  });
 }
 
 function markToInputValue(value) {

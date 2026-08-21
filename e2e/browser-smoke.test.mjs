@@ -2180,8 +2180,11 @@ const run = async () => {
     await expectText(page, "DEV101");
     await clickByText(page, "Results");
     await expectText(page, "Published results");
+    await expectText(page, "Transcript results");
+    await expectText(page, "2026 First Semester");
     await selectField(page, "outcome", "pass");
     await expectText(page, "DEV101");
+    await expectText(page, "Grade points");
     await clickByText(page, "Announcements");
     await expectText(page, "Registration notice");
     await selectField(page, "announcementPriority", "normal");

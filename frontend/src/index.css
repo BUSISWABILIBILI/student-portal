@@ -410,6 +410,12 @@ td {
   overflow-x: auto;
 }
 
+.plain-table-wrap {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .empty-state {
   display: grid;
   gap: 8px;
