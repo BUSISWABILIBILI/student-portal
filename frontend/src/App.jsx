@@ -17,7 +17,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import api, { ACCESS_TOKEN_KEY, getErrorMessage } from "./lib/api";
+import api, {
+  ACCESS_TOKEN_KEY,
+  SESSION_EXPIRED_EVENT,
+  getErrorMessage,
+} from "./lib/api";
 
 const AuthContext = createContext(null);
 
@@ -106,6 +110,21 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isBooting, setIsBooting] = useState(Boolean(token));
 
+  const clearSession = useCallback(() => {
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    setToken(null);
+    setUser(null);
+    setIsBooting(false);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener(SESSION_EXPIRED_EVENT, clearSession);
+
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, clearSession);
+    };
+  }, [clearSession]);
+
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -123,11 +142,8 @@ function AuthProvider({ children }) {
           setUser(response.data.data.user);
         }
       } catch {
-        window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-
         if (!cancelled) {
-          setToken(null);
-          setUser(null);
+          clearSession();
         }
       } finally {
         if (!cancelled) {
@@ -141,7 +157,7 @@ function AuthProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [clearSession, token]);
 
   const signIn = useCallback(async ({ email, password }) => {
     const response = await api.post("/auth/login", {
@@ -165,11 +181,9 @@ function AuthProvider({ children }) {
         await api.post("/auth/logout");
       }
     } finally {
-      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-      setToken(null);
-      setUser(null);
+      clearSession();
     }
-  }, [token]);
+  }, [clearSession, token]);
 
   const value = useMemo(
     () => ({
