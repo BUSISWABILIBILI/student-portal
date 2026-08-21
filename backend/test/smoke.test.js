@@ -31,6 +31,7 @@ import {
 } from "../src/validators/userValidators.js";
 import formatUser from "../src/utils/formatUser.js";
 import { createReadinessCheck } from "../src/controllers/healthController.js";
+import { validateEnvironment } from "../src/config/environment.js";
 
 const expectValid = (schema, input) => {
   const result = schema.safeParse(input);
@@ -69,6 +70,19 @@ const createResponse = () => {
   return response;
 };
 
+const validEnvironment = {
+  NODE_ENV: "production",
+  PORT: "5000",
+  CLIENT_URL: "https://portal.example.edu",
+  DB_HOST: "mysql.internal.example.edu",
+  DB_PORT: "3306",
+  DB_USER: "student_portal_app",
+  DB_PASSWORD: "secret",
+  DB_NAME: "student_portal",
+  JWT_SECRET: "a-production-secret-with-at-least-32-characters",
+  JWT_EXPIRES_IN: "1d",
+};
+
 describe("backend smoke checks", () => {
   it("imports the Express app and mounted routes", () => {
     assert.equal(typeof app.listen, "function");
@@ -101,6 +115,55 @@ describe("backend smoke checks", () => {
     assert.equal(failedResponse.body.success, false);
     assert.equal(failedResponse.body.status, "not_ready");
     assert.equal(failedResponse.body.checks.database, "down");
+  });
+
+  it("validates environment configuration", () => {
+    assert.doesNotThrow(() => validateEnvironment(validEnvironment));
+
+    assert.throws(
+      () =>
+        validateEnvironment({
+          ...validEnvironment,
+          DB_HOST: "",
+        }),
+      /Missing environment variables: DB_HOST/,
+    );
+
+    assert.throws(
+      () =>
+        validateEnvironment({
+          ...validEnvironment,
+          PORT: "70000",
+        }),
+      /PORT must be an integer between 1 and 65535/,
+    );
+
+    assert.throws(
+      () =>
+        validateEnvironment({
+          ...validEnvironment,
+          CLIENT_URL: "https://portal.example.edu/app",
+        }),
+      /CLIENT_URL must be an origin/,
+    );
+
+    assert.throws(
+      () =>
+        validateEnvironment({
+          ...validEnvironment,
+          JWT_EXPIRES_IN: "soon",
+        }),
+      /JWT_EXPIRES_IN must be a duration/,
+    );
+
+    assert.throws(
+      () =>
+        validateEnvironment({
+          ...validEnvironment,
+          JWT_SECRET: "replace_with_a_long_random_secret",
+        }),
+      /JWT_SECRET must be at least 32 characters/,
+    );
   });
 
   it("parses authentication payloads", () => {

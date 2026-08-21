@@ -29,6 +29,11 @@ Required backend variables:
 | `JWT_SECRET` | Long random secret used to sign access tokens. |
 | `JWT_EXPIRES_IN` | Access-token lifetime, for example `1d`. |
 
+The backend validates these values at startup. `PORT` and `DB_PORT` must be
+valid TCP ports, `CLIENT_URL` must be an exact `http` or `https` origin without
+a path, query, hash, or trailing slash, and `JWT_EXPIRES_IN` must use a duration
+such as `15m`, `1h`, `1d`, or `7d`.
+
 Production example:
 
 ```text
@@ -48,7 +53,8 @@ JWT_EXPIRES_IN=1d
 
 Generate `JWT_SECRET` with a cryptographically strong random value and store it
 in the deployment platform's secret manager. Do not reuse local or staging
-secrets in production.
+secrets in production. In production, the API refuses placeholder JWT secrets
+and secrets shorter than 32 characters.
 
 ## Frontend Environment
 
