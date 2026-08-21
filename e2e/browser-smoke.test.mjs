@@ -102,6 +102,8 @@ const enrollments = [
   {
     id: 1,
     status: "registered",
+    registeredAt: new Date().toISOString(),
+    cancelledAt: null,
     student: demoStudentSummary,
     course: demoCourse,
     academicPeriod,
@@ -110,6 +112,69 @@ const enrollments = [
 ];
 
 const results = [];
+
+const hasCapturedResult = (enrollment) =>
+  Boolean(enrollment.result) ||
+  results.some((result) => result.enrollmentId === enrollment.id);
+
+const filterEnrollments = (items, url) => {
+  const search = (url.searchParams.get("search") || "").trim().toLowerCase();
+  const status = url.searchParams.get("status");
+  const resultStatus = url.searchParams.get("resultStatus") || "all";
+  const sortBy = url.searchParams.get("sortBy") || "registeredAt";
+  const sortOrder = url.searchParams.get("sortOrder") || "desc";
+  const direction = sortOrder === "asc" ? 1 : -1;
+  let visibleEnrollments = [...items];
+
+  if (search) {
+    visibleEnrollments = visibleEnrollments.filter((enrollment) =>
+      [
+        enrollment.student.name,
+        enrollment.student.studentNumber,
+        enrollment.student.email,
+        enrollment.course.courseCode,
+        enrollment.course.courseName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search),
+    );
+  }
+
+  if (status) {
+    visibleEnrollments = visibleEnrollments.filter(
+      (enrollment) => enrollment.status === status,
+    );
+  }
+
+  if (resultStatus === "pending") {
+    visibleEnrollments = visibleEnrollments.filter(
+      (enrollment) =>
+        enrollment.status === "registered" && !hasCapturedResult(enrollment),
+    );
+  }
+
+  if (resultStatus === "captured") {
+    visibleEnrollments = visibleEnrollments.filter(hasCapturedResult);
+  }
+
+  return visibleEnrollments.sort((left, right) => {
+    const sortValues = {
+      courseCode: [left.course.courseCode, right.course.courseCode],
+      registeredAt: [left.registeredAt, right.registeredAt],
+      studentName: [left.student.name, right.student.name],
+      studentNumber: [left.student.studentNumber, right.student.studentNumber],
+    };
+    const [leftValue, rightValue] =
+      sortValues[sortBy] || sortValues.registeredAt;
+
+    return (
+      String(leftValue || "").localeCompare(String(rightValue || "")) *
+      direction
+    );
+  });
+};
 
 const passwordResetTokens = new Map();
 
@@ -670,14 +735,8 @@ const startMockApi = () =>
       }
 
       if (route === "GET /api/enrollments") {
-        const pendingOnly = url.searchParams.get("resultStatus") === "pending";
-        const visibleEnrollments = pendingOnly
-          ? enrollments.filter(
-              (enrollment) =>
-                enrollment.status === "registered" &&
-                !results.some((result) => result.enrollmentId === enrollment.id),
-            )
-          : enrollments;
+        const visibleEnrollments = filterEnrollments(enrollments, url);
+        const limit = Number(url.searchParams.get("limit") || 100);
 
         sendJson(response, 200, {
           success: true,
@@ -685,7 +744,7 @@ const startMockApi = () =>
             enrollments: visibleEnrollments,
             pagination: {
               page: 1,
-              limit: 100,
+              limit,
               totalItems: visibleEnrollments.length,
               totalPages: 1,
             },
@@ -727,10 +786,14 @@ const startMockApi = () =>
 
         if (enrollment) {
           enrollment.status = "registered";
+          enrollment.registeredAt = new Date().toISOString();
+          enrollment.cancelledAt = null;
         } else {
           enrollment = {
             id: nextEnrollmentId,
             status: "registered",
+            registeredAt: new Date().toISOString(),
+            cancelledAt: null,
             student: demoStudentSummary,
             course,
             academicPeriod,
@@ -772,6 +835,7 @@ const startMockApi = () =>
         }
 
         enrollment.status = "cancelled";
+        enrollment.cancelledAt = new Date().toISOString();
         enrollment.course.enrolledCount = Math.max(
           enrollment.course.enrolledCount - 1,
           0,
@@ -1887,6 +1951,20 @@ const run = async () => {
     await selectField(page, "sortOrder", "asc");
     await expectText(page, "DEV101");
     await clickByText(page, "Reset filters");
+    await clickByText(page, "Enrollments");
+    await expectText(page, "Enrollment registry");
+    await expectText(page, "DEV101");
+    await fillField(page, "enrollmentSearch", "DEV101");
+    await selectField(page, "enrollmentStatus", "registered");
+    await selectField(page, "enrollmentResultStatus", "captured");
+    await selectField(page, "enrollmentSortBy", "courseCode");
+    await selectField(page, "enrollmentSortOrder", "asc");
+    await expectText(page, "Demo Student");
+    await expectText(page, "published");
+    await selectField(page, "enrollmentResultStatus", "pending");
+    await waitForNoText(page, "DEV101");
+    await clickByText(page, "Reset filters");
+    await expectText(page, "DEV101");
     await clickByText(page, "Announcements");
     await expectText(page, "New announcement");
     await fillField(page, "title", "E2E notice");
@@ -1959,6 +2037,7 @@ const run = async () => {
     await signIn(page, "student@studentportal.local", "Student@456");
     await expectText(page, "My dashboard");
     await expectNoText(page, "Users");
+    await expectNoText(page, "Enrollments");
     await clickByText(page, "Courses");
     await expectText(page, "Academic period");
     await fillField(page, "courseSearch", "E2E102");

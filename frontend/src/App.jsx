@@ -29,6 +29,7 @@ const AuthContext = createContext(null);
 const navigationItems = [
   { to: "/dashboard", label: "Dashboard", roles: ["admin", "student"] },
   { to: "/courses", label: "Courses", roles: ["admin", "student"] },
+  { to: "/enrollments", label: "Enrollments", roles: ["admin"] },
   { to: "/results", label: "Results", roles: ["admin", "student"] },
   { to: "/announcements", label: "Announcements", roles: ["admin", "student"] },
   { to: "/account", label: "Account", roles: ["admin", "student"] },
@@ -58,6 +59,13 @@ const COURSE_FILTER_INITIAL_STATE = {
   courseAvailability: "",
   courseSortBy: "courseCode",
   courseSortOrder: "asc",
+};
+const ENROLLMENT_FILTER_INITIAL_STATE = {
+  enrollmentSearch: "",
+  enrollmentStatus: "",
+  enrollmentResultStatus: "all",
+  enrollmentSortBy: "registeredAt",
+  enrollmentSortOrder: "desc",
 };
 const RESULT_FORM_INITIAL_STATE = {
   enrollmentId: "",
@@ -623,6 +631,16 @@ function AppShell() {
           <Routes>
             <Route element={<DashboardPage />} path="/dashboard" />
             <Route element={<CoursesPage />} path="/courses" />
+            <Route
+              element={
+                user.role === "admin" ? (
+                  <EnrollmentsPage />
+                ) : (
+                  <Navigate replace to="/dashboard" />
+                )
+              }
+              path="/enrollments"
+            />
             <Route element={<ResultsPage />} path="/results" />
             <Route element={<AnnouncementsPage />} path="/announcements" />
             <Route element={<AccountPage />} path="/account" />
@@ -1391,6 +1409,248 @@ function buildCoursePath(filters, role) {
   }
 
   return `/courses?${params.toString()}`;
+}
+
+function EnrollmentsPage() {
+  const [filters, setFilters] = useState(ENROLLMENT_FILTER_INITIAL_STATE);
+  const enrollmentPath = buildEnrollmentPath(filters);
+  const enrollmentResource = useApiResource(
+    enrollmentPath,
+    EMPTY_ADMIN_ENROLLMENTS,
+  );
+  const enrollments = enrollmentResource.data.enrollments || [];
+
+  const handleFilterChange = (event) => {
+    const { name, value } = event.target;
+
+    setFilters((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleResetFilters = () => {
+    setFilters(ENROLLMENT_FILTER_INITIAL_STATE);
+  };
+
+  return (
+    <>
+      <SectionHeader eyebrow="Academic" title="Enrollment registry" />
+      <EnrollmentFilterPanel
+        filters={filters}
+        onChange={handleFilterChange}
+        onReset={handleResetFilters}
+      />
+      {enrollmentResource.isLoading && (
+        <PageLoader label="Loading enrollments" />
+      )}
+      {enrollmentResource.error && (
+        <ErrorState message={enrollmentResource.error} />
+      )}
+      {!enrollmentResource.isLoading &&
+        !enrollmentResource.error &&
+        enrollments.length === 0 && (
+          <EmptyState
+            title="No enrollments found"
+            message="Student registrations matching this view will appear here."
+          />
+        )}
+      {!enrollmentResource.isLoading &&
+        !enrollmentResource.error &&
+        enrollments.length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Course</th>
+                  <th>Academic period</th>
+                  <th>Status</th>
+                  <th>Result</th>
+                  <th>Registered</th>
+                </tr>
+              </thead>
+              <tbody>
+                {enrollments.map((enrollment) => (
+                  <tr key={enrollment.id}>
+                    <td>
+                      <strong>{enrollment.student.name}</strong>
+                      <span className="table-subtext">
+                        {enrollment.student.studentNumber}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{enrollment.course.courseCode}</strong>
+                      <span className="table-subtext">
+                        {enrollment.course.courseName}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{enrollment.academicPeriod.name}</strong>
+                      <span className="table-subtext">
+                        {enrollment.academicPeriod.academicYear}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={getEnrollmentStatusPillClass(enrollment)}
+                      >
+                        {enrollment.status}
+                      </span>
+                    </td>
+                    <td>{formatEnrollmentResult(enrollment)}</td>
+                    <td>{formatShortDate(enrollment.registeredAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+    </>
+  );
+}
+
+function EnrollmentFilterPanel({ filters, onChange, onReset }) {
+  const hasActiveFilters =
+    filters.enrollmentSearch ||
+    filters.enrollmentStatus ||
+    filters.enrollmentResultStatus !==
+      ENROLLMENT_FILTER_INITIAL_STATE.enrollmentResultStatus ||
+    filters.enrollmentSortBy !==
+      ENROLLMENT_FILTER_INITIAL_STATE.enrollmentSortBy ||
+    filters.enrollmentSortOrder !==
+      ENROLLMENT_FILTER_INITIAL_STATE.enrollmentSortOrder;
+
+  return (
+    <section
+      className="data-section filter-panel"
+      aria-label="Enrollment filters"
+    >
+      <div className="filter-grid">
+        <label>
+          Search
+          <input
+            name="enrollmentSearch"
+            onChange={onChange}
+            placeholder="Student or course"
+            value={filters.enrollmentSearch}
+          />
+        </label>
+        <label>
+          Status
+          <select
+            name="enrollmentStatus"
+            onChange={onChange}
+            value={filters.enrollmentStatus}
+          >
+            <option value="">All statuses</option>
+            <option value="registered">Registered</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+          </select>
+        </label>
+        <label>
+          Result
+          <select
+            name="enrollmentResultStatus"
+            onChange={onChange}
+            value={filters.enrollmentResultStatus}
+          >
+            <option value="all">All results</option>
+            <option value="pending">Pending capture</option>
+            <option value="captured">Captured</option>
+          </select>
+        </label>
+        <label>
+          Sort by
+          <select
+            name="enrollmentSortBy"
+            onChange={onChange}
+            value={filters.enrollmentSortBy}
+          >
+            <option value="registeredAt">Registered date</option>
+            <option value="studentName">Student name</option>
+            <option value="studentNumber">Student number</option>
+            <option value="courseCode">Course code</option>
+          </select>
+        </label>
+        <label>
+          Order
+          <select
+            name="enrollmentSortOrder"
+            onChange={onChange}
+            value={filters.enrollmentSortOrder}
+          >
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </label>
+      </div>
+      <button
+        className="ghost-button compact-button"
+        disabled={!hasActiveFilters}
+        onClick={onReset}
+        type="button"
+      >
+        Reset filters
+      </button>
+    </section>
+  );
+}
+
+function buildEnrollmentPath(filters) {
+  const params = new URLSearchParams({
+    limit: "50",
+    resultStatus: filters.enrollmentResultStatus,
+    sortBy: filters.enrollmentSortBy,
+    sortOrder: filters.enrollmentSortOrder,
+  });
+  const search = filters.enrollmentSearch.trim();
+
+  if (search) {
+    params.set("search", search);
+  }
+
+  if (filters.enrollmentStatus) {
+    params.set("status", filters.enrollmentStatus);
+  }
+
+  return `/enrollments?${params.toString()}`;
+}
+
+function getEnrollmentStatusPillClass(enrollment) {
+  if (enrollment.status === "registered") {
+    return "pill";
+  }
+
+  if (enrollment.status === "completed") {
+    return "pill warning-pill";
+  }
+
+  return "pill muted-pill";
+}
+
+function formatEnrollmentResult(enrollment) {
+  if (!enrollment.result) {
+    return <span className="pill warning-pill">Pending capture</span>;
+  }
+
+  return (
+    <div className="stacked-cell">
+      <span
+        className={
+          enrollment.result.publicationStatus === "published"
+            ? "pill"
+            : "pill muted-pill"
+        }
+      >
+        {enrollment.result.publicationStatus}
+      </span>
+      <span className="table-subtext">
+        {formatMark(enrollment.result.finalMark)} {enrollment.result.outcome}
+      </span>
+    </div>
+  );
 }
 
 function AdminCoursePanel({ onCreated }) {

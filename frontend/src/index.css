@@ -570,6 +570,12 @@ td {
   font-size: 0.84rem;
 }
 
+.stacked-cell {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
 .row-actions {
   display: flex;
   align-items: center;
