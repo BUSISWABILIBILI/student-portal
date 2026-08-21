@@ -549,11 +549,58 @@ const startMockApi = () =>
           success: true,
           data: {
             dashboard: {
-              users: { total: 2, students: 1 },
-              courses: { active: 1 },
-              enrollments: { registered: 1 },
-              results: { published: 1 },
-              announcements: { published: 1 },
+              users: {
+                total: 2,
+                students: 1,
+                administrators: 1,
+                active: 2,
+                inactive: 0,
+              },
+              courses: {
+                total: courses.length,
+                active: courses.filter((course) => course.isActive).length,
+                inactive: courses.filter((course) => !course.isActive).length,
+                totalCredits: courses.reduce(
+                  (total, course) => total + Number(course.creditValue || 0),
+                  0,
+                ),
+              },
+              enrollments: {
+                total: enrollments.length,
+                registered: enrollments.filter(
+                  (enrollment) => enrollment.status === "registered",
+                ).length,
+                completed: enrollments.filter(
+                  (enrollment) => enrollment.status === "completed",
+                ).length,
+                cancelled: enrollments.filter(
+                  (enrollment) => enrollment.status === "cancelled",
+                ).length,
+              },
+              results: {
+                total: results.length,
+                published: results.filter(
+                  (result) => result.publicationStatus === "published",
+                ).length,
+                draft: results.filter(
+                  (result) => result.publicationStatus === "draft",
+                ).length,
+                passed: results.filter((result) => result.outcome === "pass")
+                  .length,
+                failed: results.filter((result) => result.outcome === "fail")
+                  .length,
+                averageFinalMark: 0,
+              },
+              announcements: {
+                total: announcements.length,
+                published: announcements.filter(
+                  (announcement) =>
+                    announcement.publicationStatus === "published",
+                ).length,
+                draft: announcements.filter(
+                  (announcement) => announcement.publicationStatus === "draft",
+                ).length,
+              },
               recentStudents: [
                 getPublicUser(demoUsers["student@studentportal.local"]),
               ],
@@ -568,9 +615,29 @@ const startMockApi = () =>
           success: true,
           data: {
             dashboard: {
-              enrollments: { registered: 1, completed: 0 },
+              student: {
+                fullName: "Demo Student",
+                email: "student@studentportal.local",
+                studentNumber: "STU20260001",
+                programme: "Diploma in Information Technology",
+                yearLevel: 1,
+              },
+              enrollments: {
+                total: enrollments.length,
+                registered: enrollments.filter(
+                  (enrollment) => enrollment.status === "registered",
+                ).length,
+                completed: enrollments.filter(
+                  (enrollment) => enrollment.status === "completed",
+                ).length,
+                cancelled: enrollments.filter(
+                  (enrollment) => enrollment.status === "cancelled",
+                ).length,
+              },
               academicPerformance: {
                 publishedResults: 1,
+                passedCourses: 1,
+                failedCourses: 0,
                 earnedCredits: 12,
                 averageMark: 74,
                 gpa: 3,
@@ -585,6 +652,12 @@ const startMockApi = () =>
                   },
                 },
               ],
+              announcements: announcements.filter((announcement) =>
+                isAnnouncementVisibleToUser(
+                  announcement,
+                  demoUsers["student@studentportal.local"],
+                ),
+              ),
             },
           },
         });
@@ -1887,6 +1960,10 @@ const run = async () => {
     await clickByText(page, "Back to sign in");
     await signIn(page, "admin@studentportal.local", "Admin@123");
     await expectText(page, "Institution dashboard");
+    await expectText(page, "People and courses");
+    await expectText(page, "Administrators");
+    await expectText(page, "Academic operations");
+    await expectText(page, "Draft announcements");
     await expectText(page, "Users");
     await clickByText(page, "Account");
     await expectText(page, "Security");
@@ -2036,6 +2113,10 @@ const run = async () => {
     await expectText(page, "Sign in");
     await signIn(page, "student@studentportal.local", "Student@456");
     await expectText(page, "My dashboard");
+    await expectText(page, "Student profile");
+    await expectText(page, "Diploma in Information Technology");
+    await expectText(page, "Recent announcements");
+    await expectText(page, "Registration notice");
     await expectNoText(page, "Users");
     await expectNoText(page, "Enrollments");
     await clickByText(page, "Courses");

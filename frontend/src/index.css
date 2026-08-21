@@ -391,6 +391,15 @@ td {
   line-height: 1;
 }
 
+.dashboard-section {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-section h2 {
+  font-size: 1.12rem;
+}
+
 .data-section {
   display: grid;
   gap: 16px;
@@ -563,6 +572,28 @@ td {
   gap: 16px;
 }
 
+.profile-summary {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr);
+  align-items: center;
+}
+
+.profile-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.profile-meta-grid div {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-meta-grid span {
+  color: #5b6870;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .table-subtext {
   display: block;
   margin-top: 3px;
@@ -725,6 +756,8 @@ td {
   .user-form-grid,
   .address-form-grid,
   .filter-panel,
+  .profile-summary,
+  .profile-meta-grid,
   .announcement-list-item {
     grid-template-columns: 1fr;
   }
