@@ -8,6 +8,7 @@ import userRoutes from "./routes/userRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import notFound from "./middleware/notFound.js";
 import errorHandler from "./middleware/errorHandler.js";
+import requestContext from "./middleware/requestContext.js";
 import courseRoutes from "./routes/courseRoutes.js";
 import enrollmentRoutes from "./routes/enrollmentRoutes.js";
 import resultRoutes from "./routes/resultRoutes.js";
@@ -29,11 +30,38 @@ app.use(
   }),
 );
 
+app.use(requestContext);
+
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
 
 if (process.env.NODE_ENV !== "test") {
-  app.use(morgan("dev"));
+  morgan.token("request-id", (req) => req.requestId);
+
+  if (process.env.NODE_ENV === "production") {
+    app.use(
+      morgan((tokens, req, res) =>
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: "info",
+          message: "HTTP request completed.",
+          requestId: req.requestId,
+          method: tokens.method(req, res),
+          path: tokens.url(req, res),
+          statusCode: Number(tokens.status(req, res)),
+          responseTimeMs: Number(tokens["response-time"](req, res)),
+          contentLength: Number(tokens.res(req, res, "content-length") || 0),
+          remoteAddress: tokens["remote-addr"](req, res),
+        }),
+      ),
+    );
+  } else {
+    app.use(
+      morgan(
+        ":method :url :status :response-time ms - :res[content-length] [:request-id]",
+      ),
+    );
+  }
 }
 
 const apiLimiter = rateLimit({
@@ -41,9 +69,14 @@ const apiLimiter = rateLimit({
   limit: 200,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many requests. Please try again later.",
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: "Too many requests. Please try again later.",
+      ...(req.requestId && {
+        requestId: req.requestId,
+      }),
+    });
   },
 });
 

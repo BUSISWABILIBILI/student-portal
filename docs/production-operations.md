@@ -87,6 +87,17 @@ connection pool before exiting. Configure process managers and hosting
 platforms to send `SIGTERM` and allow at least 10 seconds for graceful shutdown
 before force-killing the process.
 
+## Observability
+
+Every response includes an `X-Request-Id` header. If a client sends a valid
+`X-Request-Id`, the API preserves it; otherwise the API generates one. Error
+responses include the same `requestId` so support logs and user-visible errors
+can be correlated.
+
+In production, request and error logs are written as JSON lines with request
+IDs, status codes, paths, and timing metadata. Configure the hosting platform
+to capture standard output and standard error.
+
 ## MySQL Access
 
 Use a dedicated MySQL user for the application. Grant only the permissions the

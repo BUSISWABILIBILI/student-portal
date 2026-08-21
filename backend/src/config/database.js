@@ -1,5 +1,7 @@
 import mysql from "mysql2/promise";
 
+import logger from "../utils/logger.js";
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
@@ -26,7 +28,7 @@ export const checkDatabaseConnection = async () => {
 
 export const testDatabaseConnection = async () => {
   await checkDatabaseConnection();
-  console.log("MySQL database connected successfully.");
+  logger.info("MySQL database connected successfully.");
 };
 
 export const closeDatabaseConnection = () => pool.end();

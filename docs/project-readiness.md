@@ -23,6 +23,8 @@
   `backend/` and `frontend/` apps.
 - Backend liveness and database readiness endpoints are available for
   deployment checks.
+- Request IDs are returned on responses and included in production JSON logs
+  for troubleshooting.
 
 ## Verification Commands
 

@@ -54,12 +54,25 @@ after(async () => {
 describe("HTTP auth and route behavior", () => {
   it("returns the health response without authentication", async () => {
     const { response, body } = await request("/api/health");
+    const requestId = response.headers.get("x-request-id");
 
     assert.equal(response.status, 200);
     assert.equal(body.success, true);
     assert.equal(body.status, "ok");
     assert.equal(body.message, "Student Portal API is running.");
     assert.match(body.timestamp, /^\d{4}-\d{2}-\d{2}T/);
+    assert.match(requestId, /^[0-9a-f-]{36}$/);
+  });
+
+  it("preserves a caller-provided request identifier", async () => {
+    const { response } = await request("/api/health", {
+      headers: {
+        "X-Request-Id": "portal-test-request-1",
+      },
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-request-id"), "portal-test-request-1");
   });
 
   it("rejects invalid login payloads before hitting the service layer", async () => {
@@ -74,6 +87,7 @@ describe("HTTP auth and route behavior", () => {
     assert.equal(response.status, 400);
     assert.equal(body.success, false);
     assert.equal(body.message, "Validation failed.");
+    assert.equal(body.requestId, response.headers.get("x-request-id"));
     assert.ok(body.errors.some((error) => error.field === "body.email"));
     assert.ok(body.errors.some((error) => error.field === "body.password"));
   });
@@ -96,6 +110,7 @@ describe("HTTP auth and route behavior", () => {
       assert.equal(response.status, 401, path);
       assert.equal(body.success, false, path);
       assert.equal(body.message, "Authentication is required.", path);
+      assert.equal(body.requestId, response.headers.get("x-request-id"), path);
     }
   });
 
@@ -109,5 +124,14 @@ describe("HTTP auth and route behavior", () => {
     assert.equal(response.status, 401);
     assert.equal(body.success, false);
     assert.equal(body.message, "Invalid authentication token.");
+    assert.equal(body.requestId, response.headers.get("x-request-id"));
+  });
+
+  it("returns request identifiers for unknown routes", async () => {
+    const { response, body } = await request("/api/does-not-exist");
+
+    assert.equal(response.status, 404);
+    assert.equal(body.success, false);
+    assert.equal(body.requestId, response.headers.get("x-request-id"));
   });
 });
