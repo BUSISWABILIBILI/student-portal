@@ -185,7 +185,8 @@ td {
 
 .form-error,
 .inline-error,
-.inline-success {
+.inline-success,
+.inline-notice {
   padding: 12px 14px;
   border-radius: 6px;
   font-weight: 700;
@@ -202,6 +203,12 @@ td {
   border: 1px solid #b6d9ca;
   background: #eef8f2;
   color: #17633c;
+}
+
+.inline-notice {
+  border: 1px solid #f0d993;
+  background: #fff8df;
+  color: #6d4b00;
 }
 
 .auth-link,

@@ -5,6 +5,7 @@ import {
   ACCESS_TOKEN_KEY,
   API_BASE_URL,
   SESSION_EXPIRED_EVENT,
+  SESSION_EXPIRED_MESSAGE,
   getErrorMessage,
   handleUnauthorizedError,
 } from "../src/lib/api.js";
@@ -86,7 +87,10 @@ describe("frontend API helpers", () => {
 
       globalThis.window = {
         dispatchEvent(event) {
-          dispatchedEvents.push(event.type);
+          dispatchedEvents.push({
+            detail: event.detail,
+            type: event.type,
+          });
         },
         localStorage: {
           getItem(key) {
@@ -108,7 +112,14 @@ describe("frontend API helpers", () => {
       );
 
       assert.equal(storedValues.has(ACCESS_TOKEN_KEY), false);
-      assert.deepEqual(dispatchedEvents, [SESSION_EXPIRED_EVENT]);
+      assert.deepEqual(dispatchedEvents, [
+        {
+          detail: {
+            message: SESSION_EXPIRED_MESSAGE,
+          },
+          type: SESSION_EXPIRED_EVENT,
+        },
+      ]);
     });
   });
 

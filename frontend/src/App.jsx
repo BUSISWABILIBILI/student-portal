@@ -20,6 +20,7 @@ import {
 import api, {
   ACCESS_TOKEN_KEY,
   SESSION_EXPIRED_EVENT,
+  SESSION_EXPIRED_MESSAGE,
   getErrorMessage,
 } from "./lib/api";
 
@@ -109,21 +110,39 @@ function AuthProvider({ children }) {
   );
   const [user, setUser] = useState(null);
   const [isBooting, setIsBooting] = useState(Boolean(token));
+  const [sessionMessage, setSessionMessage] = useState("");
 
-  const clearSession = useCallback(() => {
+  const clearSession = useCallback(({ message } = {}) => {
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
     setToken(null);
     setUser(null);
     setIsBooting(false);
+
+    if (message !== undefined) {
+      setSessionMessage(message);
+    }
   }, []);
 
+  const clearSessionMessage = useCallback(() => {
+    setSessionMessage("");
+  }, []);
+
+  const handleSessionExpired = useCallback(
+    (event) => {
+      clearSession({
+        message: event.detail?.message || SESSION_EXPIRED_MESSAGE,
+      });
+    },
+    [clearSession],
+  );
+
   useEffect(() => {
-    window.addEventListener(SESSION_EXPIRED_EVENT, clearSession);
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
 
     return () => {
-      window.removeEventListener(SESSION_EXPIRED_EVENT, clearSession);
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
     };
-  }, [clearSession]);
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     if (!token) {
@@ -171,9 +190,10 @@ function AuthProvider({ children }) {
     window.localStorage.setItem(ACCESS_TOKEN_KEY, nextToken);
     setToken(nextToken);
     setUser(nextUser);
+    clearSessionMessage();
 
     return nextUser;
-  }, []);
+  }, [clearSessionMessage]);
 
   const signOut = useCallback(async () => {
     try {
@@ -181,7 +201,9 @@ function AuthProvider({ children }) {
         await api.post("/auth/logout");
       }
     } finally {
-      clearSession();
+      clearSession({
+        message: "",
+      });
     }
   }, [clearSession, token]);
 
@@ -189,12 +211,22 @@ function AuthProvider({ children }) {
     () => ({
       isAuthenticated: Boolean(token && user),
       isBooting,
+      clearSessionMessage,
+      signIn,
+      signOut,
+      sessionMessage,
+      token,
+      user,
+    }),
+    [
+      clearSessionMessage,
+      isBooting,
+      sessionMessage,
       signIn,
       signOut,
       token,
       user,
-    }),
-    [isBooting, signIn, signOut, token, user],
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -227,7 +259,8 @@ function PageLoader({ label = "Loading" }) {
 }
 
 function LoginPage() {
-  const { isAuthenticated, signIn } = useAuth();
+  const { clearSessionMessage, isAuthenticated, sessionMessage, signIn } =
+    useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -253,6 +286,7 @@ function LoginPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    clearSessionMessage();
     setIsSubmitting(true);
 
     try {
@@ -305,6 +339,9 @@ function LoginPage() {
             />
           </label>
 
+          {sessionMessage && !error && (
+            <p className="inline-notice">{sessionMessage}</p>
+          )}
           {error && <p className="form-error">{error}</p>}
 
           <button className="primary-button" disabled={isSubmitting} type="submit">

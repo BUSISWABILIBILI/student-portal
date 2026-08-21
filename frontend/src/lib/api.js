@@ -5,6 +5,8 @@ export const API_BASE_URL =
 
 export const ACCESS_TOKEN_KEY = "student_portal_access_token";
 export const SESSION_EXPIRED_EVENT = "student_portal_session_expired";
+export const SESSION_EXPIRED_MESSAGE =
+  "Your session expired. Please sign in again.";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,9 +19,29 @@ export const clearStoredSession = () => {
   getLocalStorage()?.removeItem(ACCESS_TOKEN_KEY);
 };
 
-export const notifySessionExpired = () => {
+const createSessionExpiredEvent = (message) => {
+  if (typeof CustomEvent === "function") {
+    return new CustomEvent(SESSION_EXPIRED_EVENT, {
+      detail: {
+        message,
+      },
+    });
+  }
+
+  const event = new Event(SESSION_EXPIRED_EVENT);
+
+  Object.defineProperty(event, "detail", {
+    value: {
+      message,
+    },
+  });
+
+  return event;
+};
+
+export const notifySessionExpired = (message = SESSION_EXPIRED_MESSAGE) => {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    window.dispatchEvent(createSessionExpiredEvent(message));
   }
 };
 
