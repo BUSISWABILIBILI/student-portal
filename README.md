@@ -55,6 +55,12 @@ The default frontend API URL is `http://localhost:5000/api`.
 ## Install Dependencies
 
 ```powershell
+npm run install:all
+```
+
+You can also install each side separately:
+
+```powershell
 cd backend
 npm install
 
@@ -88,7 +94,13 @@ Student:       student@studentportal.local / Student@123
 
 ## Run Locally
 
-In one terminal:
+Start both the backend API and frontend app from the repository root:
+
+```powershell
+npm run dev
+```
+
+You can also run each side separately. In one terminal:
 
 ```powershell
 npm run backend:dev

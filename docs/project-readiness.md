@@ -19,6 +19,8 @@
   and user management.
 - Password change and token-based password reset flows are available through
   the API and React portal.
+- Root workflow scripts can install, run, test, lint, and build the separated
+  `backend/` and `frontend/` apps.
 
 ## Verification Commands
 
