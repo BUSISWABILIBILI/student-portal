@@ -201,6 +201,87 @@ const syncCourseCapacity = (course) => {
   return course;
 };
 
+const isAnnouncementVisibleToUser = (announcement, user) => {
+  const now = Date.now();
+
+  if (announcement.publicationStatus !== "published") {
+    return false;
+  }
+
+  if (
+    announcement.publishAt &&
+    new Date(announcement.publishAt).getTime() > now
+  ) {
+    return false;
+  }
+
+  if (
+    announcement.expiresAt &&
+    new Date(announcement.expiresAt).getTime() <= now
+  ) {
+    return false;
+  }
+
+  if (announcement.targetType === "all") {
+    return true;
+  }
+
+  if (announcement.targetType === "role") {
+    return announcement.targetRole === user.role;
+  }
+
+  return (
+    announcement.targetType === "student" &&
+    announcement.targetStudent?.id === user.studentProfile?.id
+  );
+};
+
+const filterAnnouncements = (items, url, user, { visibleOnly = false } = {}) => {
+  const search = (url.searchParams.get("search") || "").trim().toLowerCase();
+  const publicationStatus = url.searchParams.get("publicationStatus");
+  const priority = url.searchParams.get("priority");
+  const targetType = url.searchParams.get("targetType");
+  const sortOrder = url.searchParams.get("sortOrder") || "desc";
+  let visibleAnnouncements = [...items];
+
+  if (visibleOnly) {
+    visibleAnnouncements = visibleAnnouncements.filter((announcement) =>
+      isAnnouncementVisibleToUser(announcement, user),
+    );
+  } else if (publicationStatus) {
+    visibleAnnouncements = visibleAnnouncements.filter(
+      (announcement) => announcement.publicationStatus === publicationStatus,
+    );
+  }
+
+  if (search) {
+    visibleAnnouncements = visibleAnnouncements.filter((announcement) =>
+      [announcement.title, announcement.content]
+        .join(" ")
+        .toLowerCase()
+        .includes(search),
+    );
+  }
+
+  if (priority) {
+    visibleAnnouncements = visibleAnnouncements.filter(
+      (announcement) => announcement.priority === priority,
+    );
+  }
+
+  if (targetType) {
+    visibleAnnouncements = visibleAnnouncements.filter(
+      (announcement) => announcement.targetType === targetType,
+    );
+  }
+
+  const direction = sortOrder === "asc" ? 1 : -1;
+
+  return visibleAnnouncements.sort(
+    (left, right) => (left.id - right.id) * direction,
+  );
+};
+
 const getUserFromRequest = (request) => {
   const token = request.headers.authorization?.replace(/^Bearer\s+/i, "");
 
@@ -822,14 +903,20 @@ const startMockApi = () =>
       }
 
       if (route === "GET /api/announcements") {
+        const visibleAnnouncements = filterAnnouncements(
+          announcements,
+          url,
+          user,
+        );
+
         sendJson(response, 200, {
           success: true,
           data: {
-            announcements,
+            announcements: visibleAnnouncements,
             pagination: {
               page: 1,
               limit: 50,
-              totalItems: announcements.length,
+              totalItems: visibleAnnouncements.length,
               totalPages: 1,
             },
           },
@@ -838,12 +925,19 @@ const startMockApi = () =>
       }
 
       if (route === "GET /api/announcements/me") {
+        const visibleAnnouncements = filterAnnouncements(
+          announcements,
+          url,
+          user,
+          {
+            visibleOnly: true,
+          },
+        );
+
         sendJson(response, 200, {
           success: true,
           data: {
-            announcements: announcements.filter(
-              (announcement) => announcement.publicationStatus === "published",
-            ),
+            announcements: visibleAnnouncements,
           },
         });
         return;
@@ -1785,8 +1879,17 @@ const run = async () => {
     await expectText(page, "Draft");
     await clickByText(page, "Publish");
     await expectText(page, "Announcement published successfully.");
+    await fillField(page, "announcementSearch", "E2E updated");
+    await selectField(page, "announcementPublicationStatus", "published");
+    await selectField(page, "announcementPriority", "normal");
+    await selectField(page, "announcementTargetType", "role");
+    await selectField(page, "announcementSortOrder", "asc");
+    await expectText(page, "E2E updated notice");
+    await waitForNoText(page, "Registration notice");
+    await clickByText(page, "Reset filters");
+    await expectText(page, "Registration notice");
     await page.evaluate("window.confirm = () => true");
-    await clickByText(page, "Delete");
+    await clickButtonNearText(page, "E2E updated notice", "Delete");
     await expectText(page, "Announcement deleted successfully.");
     await waitForNoText(page, "E2E updated notice");
     await clickByText(page, "Users");
@@ -1835,6 +1938,12 @@ const run = async () => {
     await selectField(page, "outcome", "pass");
     await expectText(page, "DEV101");
     await clickByText(page, "Announcements");
+    await expectText(page, "Registration notice");
+    await selectField(page, "announcementPriority", "normal");
+    await expectText(page, "Registration notice");
+    await selectField(page, "announcementPriority", "urgent");
+    await waitForNoText(page, "Registration notice");
+    await clickByText(page, "Reset filters");
     await expectText(page, "Registration notice");
 
     console.log("Browser smoke test passed.");

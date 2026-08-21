@@ -75,6 +75,13 @@ const ANNOUNCEMENT_FORM_INITIAL_STATE = {
   publishAt: "",
   expiresAt: "",
 };
+const ANNOUNCEMENT_FILTER_INITIAL_STATE = {
+  announcementSearch: "",
+  announcementPublicationStatus: "",
+  announcementPriority: "",
+  announcementTargetType: "",
+  announcementSortOrder: "desc",
+};
 const CHANGE_PASSWORD_INITIAL_STATE = {
   currentPassword: "",
   newPassword: "",
@@ -2077,10 +2084,10 @@ function getOutcomePillClass(result) {
 
 function AnnouncementsPage() {
   const { user } = useAuth();
-  const path =
-    user.role === "admin"
-      ? "/announcements?limit=50&sortOrder=desc"
-      : "/announcements/me?limit=20";
+  const [announcementFilters, setAnnouncementFilters] = useState(
+    ANNOUNCEMENT_FILTER_INITIAL_STATE,
+  );
+  const path = buildAnnouncementPath(announcementFilters, user.role);
   const announcementResource = useApiResource(path, EMPTY_ANNOUNCEMENTS);
   const studentResource = useApiResource(
     "/users?limit=100&role=student&status=active&sortBy=lastName&sortOrder=asc",
@@ -2097,6 +2104,19 @@ function AnnouncementsPage() {
   const activeStudents = (studentResource.data.users || []).filter(
     (student) => student.studentProfile?.id,
   );
+
+  const handleAnnouncementFilterChange = (event) => {
+    const { name, value } = event.target;
+
+    setAnnouncementFilters((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleResetAnnouncementFilters = () => {
+    setAnnouncementFilters(ANNOUNCEMENT_FILTER_INITIAL_STATE);
+  };
 
   const handleAnnouncementSaved = (message) => {
     setNotice(message);
@@ -2160,6 +2180,12 @@ function AnnouncementsPage() {
   return (
     <>
       <SectionHeader eyebrow="Messages" title="Announcements" />
+      <AnnouncementFilterPanel
+        filters={announcementFilters}
+        onChange={handleAnnouncementFilterChange}
+        onReset={handleResetAnnouncementFilters}
+        role={user.role}
+      />
       {user.role === "admin" && (
         <AdminAnnouncementPanel
           activeStudents={activeStudents}
@@ -2182,7 +2208,11 @@ function AnnouncementsPage() {
         announcements.length === 0 && (
         <EmptyState
           title="No announcements"
-          message="Published announcements will appear here."
+          message={
+            user.role === "admin"
+              ? "Announcements matching this view will appear here."
+              : "Published announcements will appear here."
+          }
         />
       )}
       {!announcementResource.isLoading &&
@@ -2258,6 +2288,138 @@ function AnnouncementsPage() {
       )}
     </>
   );
+}
+
+function AnnouncementFilterPanel({ filters, onChange, onReset, role }) {
+  const hasActiveFilters =
+    filters.announcementPriority ||
+    (role === "admin" &&
+      (filters.announcementSearch ||
+        filters.announcementPublicationStatus ||
+        filters.announcementTargetType ||
+        filters.announcementSortOrder !==
+          ANNOUNCEMENT_FILTER_INITIAL_STATE.announcementSortOrder));
+
+  return (
+    <section
+      className="data-section filter-panel"
+      aria-label="Announcement filters"
+    >
+      <div className="filter-grid">
+        {role === "admin" && (
+          <label>
+            Search
+            <input
+              name="announcementSearch"
+              onChange={onChange}
+              placeholder="Title or content"
+              value={filters.announcementSearch}
+            />
+          </label>
+        )}
+        <label>
+          Priority
+          <select
+            name="announcementPriority"
+            onChange={onChange}
+            value={filters.announcementPriority}
+          >
+            <option value="">All priorities</option>
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+        {role === "admin" && (
+          <>
+            <label>
+              Publication
+              <select
+                name="announcementPublicationStatus"
+                onChange={onChange}
+                value={filters.announcementPublicationStatus}
+              >
+                <option value="">All statuses</option>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
+            <label>
+              Target
+              <select
+                name="announcementTargetType"
+                onChange={onChange}
+                value={filters.announcementTargetType}
+              >
+                <option value="">All targets</option>
+                <option value="all">Everyone</option>
+                <option value="role">Role</option>
+                <option value="student">Specific student</option>
+              </select>
+            </label>
+            <label>
+              Order
+              <select
+                name="announcementSortOrder"
+                onChange={onChange}
+                value={filters.announcementSortOrder}
+              >
+                <option value="desc">Newest first</option>
+                <option value="asc">Oldest first</option>
+              </select>
+            </label>
+          </>
+        )}
+      </div>
+      <button
+        className="ghost-button compact-button"
+        disabled={!hasActiveFilters}
+        onClick={onReset}
+        type="button"
+      >
+        Reset filters
+      </button>
+    </section>
+  );
+}
+
+function buildAnnouncementPath(filters, role) {
+  if (role === "student") {
+    const params = new URLSearchParams({
+      limit: "20",
+    });
+
+    if (filters.announcementPriority) {
+      params.set("priority", filters.announcementPriority);
+    }
+
+    return `/announcements/me?${params.toString()}`;
+  }
+
+  const params = new URLSearchParams({
+    limit: "50",
+    sortOrder: filters.announcementSortOrder,
+  });
+  const search = filters.announcementSearch.trim();
+
+  if (search) {
+    params.set("search", search);
+  }
+
+  if (filters.announcementPublicationStatus) {
+    params.set("publicationStatus", filters.announcementPublicationStatus);
+  }
+
+  if (filters.announcementPriority) {
+    params.set("priority", filters.announcementPriority);
+  }
+
+  if (filters.announcementTargetType) {
+    params.set("targetType", filters.announcementTargetType);
+  }
+
+  return `/announcements?${params.toString()}`;
 }
 
 function AdminAnnouncementPanel({
