@@ -1146,6 +1146,7 @@ function CoursesPage() {
       enabled: user.role === "student" && Boolean(selectedAcademicPeriodId),
     },
   );
+  const [editingCourse, setEditingCourse] = useState(null);
   const enrollments = enrollmentResource.data.courses || [];
   const registeredCourseIds = new Set(
     enrollments
@@ -1198,6 +1199,13 @@ function CoursesPage() {
     if (user.role === "student" && selectedAcademicPeriodId) {
       enrollmentResource.refetch();
     }
+  };
+
+  const handleCourseSaved = (message) => {
+    setNotice(message);
+    setActionError("");
+    setEditingCourse(null);
+    courseResource.refetch();
   };
 
   const handleToggleCourseStatus = async (course) => {
@@ -1304,7 +1312,11 @@ function CoursesPage() {
         role={user.role}
       />
       {user.role === "admin" && (
-        <AdminCoursePanel onCreated={courseResource.refetch} />
+        <AdminCoursePanel
+          editingCourse={editingCourse}
+          onCancelEdit={() => setEditingCourse(null)}
+          onSaved={handleCourseSaved}
+        />
       )}
       {notice && <p className="inline-success">{notice}</p>}
       {actionError && <ErrorState message={actionError} />}
@@ -1373,6 +1385,18 @@ function CoursesPage() {
               </div>
               {user.role === "admin" && (
                 <div className="card-actions">
+                  <button
+                    className="ghost-button compact-button"
+                    disabled={Boolean(busyKey)}
+                    onClick={() => {
+                      setNotice("");
+                      setActionError("");
+                      setEditingCourse(course);
+                    }}
+                    type="button"
+                  >
+                    Edit
+                  </button>
                   <button
                     className="ghost-button compact-button"
                     disabled={busyKey === `course-${course.id}`}
@@ -1792,11 +1816,30 @@ function formatEnrollmentResult(enrollment) {
   );
 }
 
-function AdminCoursePanel({ onCreated }) {
+function AdminCoursePanel({ editingCourse, onCancelEdit, onSaved }) {
   const [form, setForm] = useState(COURSE_FORM_INITIAL_STATE);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = Boolean(editingCourse);
+
+  useEffect(() => {
+    if (!editingCourse) {
+      setForm(COURSE_FORM_INITIAL_STATE);
+      setError("");
+      return;
+    }
+
+    setForm({
+      courseCode: editingCourse.courseCode,
+      courseName: editingCourse.courseName,
+      department: editingCourse.department || "",
+      creditValue: String(editingCourse.creditValue),
+      capacity: String(editingCourse.capacity),
+      isActive: editingCourse.isActive,
+      description: editingCourse.description || "",
+    });
+    setError("");
+  }, [editingCourse]);
 
   const handleChange = (event) => {
     const { checked, name, type, value } = event.target;
@@ -1807,26 +1850,28 @@ function AdminCoursePanel({ onCreated }) {
     }));
   };
 
+  const buildPayload = () => ({
+    courseCode: form.courseCode,
+    courseName: form.courseName,
+    department: form.department,
+    creditValue: Number(form.creditValue),
+    capacity: Number(form.capacity),
+    isActive: form.isActive,
+    description: form.description || null,
+  });
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
-    setMessage("");
     setIsSubmitting(true);
 
     try {
-      const response = await api.post("/courses", {
-        courseCode: form.courseCode,
-        courseName: form.courseName,
-        department: form.department,
-        creditValue: Number(form.creditValue),
-        capacity: Number(form.capacity),
-        isActive: form.isActive,
-        description: form.description || null,
-      });
+      const response = isEditing
+        ? await api.patch(`/courses/${editingCourse.id}`, buildPayload())
+        : await api.post("/courses", buildPayload());
 
       setForm(COURSE_FORM_INITIAL_STATE);
-      setMessage(response.data.message);
-      onCreated();
+      onSaved(response.data.message);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -1835,10 +1880,26 @@ function AdminCoursePanel({ onCreated }) {
   };
 
   return (
-    <section className="data-section course-editor" aria-labelledby="course-form-title">
-      <div>
-        <p className="eyebrow">Course setup</p>
-        <h2 id="course-form-title">New course</h2>
+    <section
+      className="data-section course-editor"
+      aria-labelledby="course-form-title"
+    >
+      <div className="editor-heading">
+        <div>
+          <p className="eyebrow">Course setup</p>
+          <h2 id="course-form-title">
+            {isEditing ? "Edit course" : "New course"}
+          </h2>
+        </div>
+        {isEditing && (
+          <button
+            className="ghost-button compact-button"
+            onClick={onCancelEdit}
+            type="button"
+          >
+            Cancel edit
+          </button>
+        )}
       </div>
       <form className="resource-form" onSubmit={handleSubmit}>
         <div className="form-grid">
@@ -1911,13 +1972,18 @@ function AdminCoursePanel({ onCreated }) {
           />
         </label>
         {error && <p className="form-error">{error}</p>}
-        {message && <p className="inline-success">{message}</p>}
         <button
           className="primary-button form-action"
           disabled={isSubmitting}
           type="submit"
         >
-          {isSubmitting ? "Creating" : "Create course"}
+          {isSubmitting
+            ? isEditing
+              ? "Updating"
+              : "Creating"
+            : isEditing
+              ? "Update course"
+              : "Create course"}
         </button>
       </form>
     </section>

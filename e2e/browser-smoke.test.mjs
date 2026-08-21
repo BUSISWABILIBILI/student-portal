@@ -1987,13 +1987,27 @@ const run = async () => {
     await clickByText(page, "Create course");
     await expectText(page, "Course created successfully.");
     await expectText(page, "E2E102");
+    await clickButtonNearText(page, "E2E102", "Edit");
+    await expectText(page, "Edit course");
+    await fillField(page, "courseName", "Browser Edited Systems");
+    await fillField(page, "department", "Quality Engineering");
+    await fillField(page, "capacity", "4");
+    await fillField(
+      page,
+      "description",
+      "Updated through the browser smoke test.",
+    );
+    await clickByText(page, "Update course");
+    await expectText(page, "Course updated successfully.");
+    await expectText(page, "Browser Edited Systems");
+    await expectText(page, "Quality Engineering");
     await clickButtonNearText(page, "E2E102", "Deactivate");
     await expectText(page, "Course updated successfully.");
     await expectText(page, "Inactive");
     await clickButtonNearText(page, "E2E102", "Activate");
     await expectText(page, "Course updated successfully.");
     await fillField(page, "courseSearch", "E2E102");
-    await fillField(page, "courseDepartment", "Quality Assurance");
+    await fillField(page, "courseDepartment", "Quality Engineering");
     await selectField(page, "courseStatus", "active");
     await selectField(page, "courseAvailability", "available");
     await selectField(page, "courseSortBy", "courseCode");
