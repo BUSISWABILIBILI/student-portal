@@ -167,6 +167,52 @@ const getPublicUser = (user) => {
 const getUserById = (userId) =>
   Object.values(demoUsers).find((user) => user.id === Number(userId));
 
+const filterUsers = (items, url) => {
+  const search = (url.searchParams.get("search") || "").trim().toLowerCase();
+  const role = url.searchParams.get("role");
+  const status = url.searchParams.get("status");
+  const sortBy = url.searchParams.get("sortBy") || "createdAt";
+  const sortOrder = url.searchParams.get("sortOrder") || "desc";
+  const direction = sortOrder === "asc" ? 1 : -1;
+  let visibleUsers = [...items];
+
+  if (search) {
+    visibleUsers = visibleUsers.filter((item) =>
+      [
+        item.fullName,
+        item.firstName,
+        item.lastName,
+        item.email,
+        item.studentProfile?.studentNumber,
+        item.studentProfile?.programme,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search),
+    );
+  }
+
+  if (role) {
+    visibleUsers = visibleUsers.filter((item) => item.role === role);
+  }
+
+  if (status === "active") {
+    visibleUsers = visibleUsers.filter((item) => item.isActive);
+  }
+
+  if (status === "inactive") {
+    visibleUsers = visibleUsers.filter((item) => !item.isActive);
+  }
+
+  return visibleUsers.sort((left, right) => {
+    const leftValue = left[sortBy] ?? "";
+    const rightValue = right[sortBy] ?? "";
+
+    return String(leftValue).localeCompare(String(rightValue)) * direction;
+  });
+};
+
 const calculateResultFields = ({ courseworkMark, examinationMark }) => {
   if (courseworkMark === null || examinationMark === null) {
     return {
@@ -1205,23 +1251,7 @@ const startMockApi = () =>
       }
 
       if (route === "GET /api/users") {
-        const role = url.searchParams.get("role");
-        const status = url.searchParams.get("status");
-        const users = Object.values(demoUsers).filter((item) => {
-          if (role && item.role !== role) {
-            return false;
-          }
-
-          if (status === "active" && !item.isActive) {
-            return false;
-          }
-
-          if (status === "inactive" && item.isActive) {
-            return false;
-          }
-
-          return true;
-        });
+        const users = filterUsers(Object.values(demoUsers), url);
 
         sendJson(response, 200, {
           success: true,
@@ -1914,6 +1944,15 @@ const run = async () => {
     await expectText(page, "E2E Updated Learner");
     await clickButtonNearText(page, "E2E Updated Learner", "Deactivate");
     await expectText(page, "User account deactivated successfully.");
+    await fillField(page, "userSearch", "E2E Updated");
+    await selectField(page, "userRole", "student");
+    await selectField(page, "userStatus", "inactive");
+    await selectField(page, "userSortBy", "lastName");
+    await selectField(page, "userSortOrder", "asc");
+    await expectText(page, "E2E Updated Learner");
+    await waitForNoText(page, "Demo Student");
+    await clickByText(page, "Reset filters");
+    await expectText(page, "Demo Student");
 
     await clickByText(page, "Sign out");
     await expectText(page, "Sign in");

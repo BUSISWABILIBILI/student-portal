@@ -109,6 +109,13 @@ const USER_FORM_INITIAL_STATE = {
   postalCode: "",
   admissionDate: "",
 };
+const USER_FILTER_INITIAL_STATE = {
+  userSearch: "",
+  userRole: "",
+  userStatus: "",
+  userSortBy: "createdAt",
+  userSortOrder: "desc",
+};
 const RESULT_FILTER_INITIAL_STATE = {
   search: "",
   outcome: "",
@@ -2733,10 +2740,9 @@ function getAnnouncementPillClass(announcement) {
 
 function UsersPage() {
   const { user } = useAuth();
-  const userResource = useApiResource(
-    "/users?limit=50&sortBy=createdAt&sortOrder=desc",
-    EMPTY_USERS,
-  );
+  const [userFilters, setUserFilters] = useState(USER_FILTER_INITIAL_STATE);
+  const userPath = buildUserPath(userFilters);
+  const userResource = useApiResource(userPath, EMPTY_USERS);
   const [editingUser, setEditingUser] = useState(null);
   const [notice, setNotice] = useState("");
   const [actionError, setActionError] = useState("");
@@ -2748,6 +2754,19 @@ function UsersPage() {
     setActionError("");
     setEditingUser(null);
     userResource.refetch();
+  };
+
+  const handleUserFilterChange = (event) => {
+    const { name, value } = event.target;
+
+    setUserFilters((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleResetUserFilters = () => {
+    setUserFilters(USER_FILTER_INITIAL_STATE);
   };
 
   const handleStatusChange = async (userRecord) => {
@@ -2772,6 +2791,11 @@ function UsersPage() {
   return (
     <>
       <SectionHeader eyebrow="Administration" title="Users" />
+      <UserFilterPanel
+        filters={userFilters}
+        onChange={handleUserFilterChange}
+        onReset={handleResetUserFilters}
+      />
       <AdminUserPanel
         editingUser={editingUser}
         onCancelEdit={() => setEditingUser(null)}
@@ -2784,7 +2808,7 @@ function UsersPage() {
       {!userResource.isLoading && !userResource.error && users.length === 0 && (
         <EmptyState
           title="No users found"
-          message="User accounts created by administrators will appear here."
+          message="User accounts matching this view will appear here."
         />
       )}
       {!userResource.isLoading && !userResource.error && users.length > 0 && (
@@ -2856,6 +2880,107 @@ function UsersPage() {
       )}
     </>
   );
+}
+
+function UserFilterPanel({ filters, onChange, onReset }) {
+  const hasActiveFilters =
+    filters.userSearch ||
+    filters.userRole ||
+    filters.userStatus ||
+    filters.userSortBy !== USER_FILTER_INITIAL_STATE.userSortBy ||
+    filters.userSortOrder !== USER_FILTER_INITIAL_STATE.userSortOrder;
+
+  return (
+    <section className="data-section filter-panel" aria-label="User filters">
+      <div className="filter-grid">
+        <label>
+          Search
+          <input
+            name="userSearch"
+            onChange={onChange}
+            placeholder="Name, email, number"
+            value={filters.userSearch}
+          />
+        </label>
+        <label>
+          Role
+          <select name="userRole" onChange={onChange} value={filters.userRole}>
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="student">Student</option>
+          </select>
+        </label>
+        <label>
+          Status
+          <select
+            name="userStatus"
+            onChange={onChange}
+            value={filters.userStatus}
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+        <label>
+          Sort by
+          <select
+            name="userSortBy"
+            onChange={onChange}
+            value={filters.userSortBy}
+          >
+            <option value="createdAt">Created date</option>
+            <option value="firstName">First name</option>
+            <option value="lastName">Last name</option>
+            <option value="email">Email</option>
+            <option value="lastLoginAt">Last login</option>
+          </select>
+        </label>
+        <label>
+          Order
+          <select
+            name="userSortOrder"
+            onChange={onChange}
+            value={filters.userSortOrder}
+          >
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </label>
+      </div>
+      <button
+        className="ghost-button compact-button"
+        disabled={!hasActiveFilters}
+        onClick={onReset}
+        type="button"
+      >
+        Reset filters
+      </button>
+    </section>
+  );
+}
+
+function buildUserPath(filters) {
+  const params = new URLSearchParams({
+    limit: "50",
+    sortBy: filters.userSortBy,
+    sortOrder: filters.userSortOrder,
+  });
+  const search = filters.userSearch.trim();
+
+  if (search) {
+    params.set("search", search);
+  }
+
+  if (filters.userRole) {
+    params.set("role", filters.userRole);
+  }
+
+  if (filters.userStatus) {
+    params.set("status", filters.userStatus);
+  }
+
+  return `/users?${params.toString()}`;
 }
 
 function AdminUserPanel({ editingUser, onCancelEdit, onSaved }) {
