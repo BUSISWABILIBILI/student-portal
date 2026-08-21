@@ -21,6 +21,8 @@
   the API and React portal.
 - Root workflow scripts can install, run, test, lint, and build the separated
   `backend/` and `frontend/` apps.
+- Backend liveness and database readiness endpoints are available for
+  deployment checks.
 
 ## Verification Commands
 

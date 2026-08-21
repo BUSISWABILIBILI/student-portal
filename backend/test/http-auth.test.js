@@ -57,6 +57,7 @@ describe("HTTP auth and route behavior", () => {
 
     assert.equal(response.status, 200);
     assert.equal(body.success, true);
+    assert.equal(body.status, "ok");
     assert.equal(body.message, "Student Portal API is running.");
     assert.match(body.timestamp, /^\d{4}-\d{2}-\d{2}T/);
   });

@@ -27,15 +27,19 @@ const pool = mysql.createPool({
   decimalNumbers: true,
 });
 
-export const testDatabaseConnection = async () => {
+export const checkDatabaseConnection = async () => {
   const connection = await pool.getConnection();
 
   try {
     await connection.query("SELECT 1");
-    console.log("MySQL database connected successfully.");
   } finally {
     connection.release();
   }
+};
+
+export const testDatabaseConnection = async () => {
+  await checkDatabaseConnection();
+  console.log("MySQL database connected successfully.");
 };
 
 export default pool;

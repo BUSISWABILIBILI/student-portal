@@ -14,6 +14,7 @@ import resultRoutes from "./routes/resultRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import academicPeriodRoutes from "./routes/academicPeriodRoutes.js";
+import { healthCheck, readinessCheck } from "./controllers/healthController.js";
 
 const app = express();
 
@@ -48,13 +49,8 @@ const apiLimiter = rateLimit({
 
 app.use("/api", apiLimiter);
 
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Student Portal API is running.",
-    timestamp: new Date().toISOString(),
-  });
-});
+app.get("/api/health", healthCheck);
+app.get("/api/ready", readinessCheck);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

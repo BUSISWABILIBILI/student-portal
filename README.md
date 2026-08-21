@@ -116,6 +116,8 @@ Frontend: `http://localhost:5173`
 
 API health: `http://localhost:5000/api/health`
 
+API readiness: `http://localhost:5000/api/ready`
+
 ## Verification
 
 Run backend tests:

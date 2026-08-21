@@ -30,6 +30,7 @@ import {
   listUsersSchema,
 } from "../src/validators/userValidators.js";
 import formatUser from "../src/utils/formatUser.js";
+import { createReadinessCheck } from "../src/controllers/healthController.js";
 
 const expectValid = (schema, input) => {
   const result = schema.safeParse(input);
@@ -51,10 +52,55 @@ const expectInvalid = (schema, input) => {
   return result.error.issues;
 };
 
+const createResponse = () => {
+  const response = {
+    body: undefined,
+    statusCode: undefined,
+    json(payload) {
+      this.body = payload;
+      return this;
+    },
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+  };
+
+  return response;
+};
+
 describe("backend smoke checks", () => {
   it("imports the Express app and mounted routes", () => {
     assert.equal(typeof app.listen, "function");
     assert.equal(typeof app.use, "function");
+  });
+
+  it("reports readiness based on database connectivity", async () => {
+    const readyResponse = createResponse();
+    const readyHandler = createReadinessCheck({
+      checkDatabase: async () => {},
+    });
+
+    await readyHandler({}, readyResponse);
+
+    assert.equal(readyResponse.statusCode, 200);
+    assert.equal(readyResponse.body.success, true);
+    assert.equal(readyResponse.body.status, "ready");
+    assert.equal(readyResponse.body.checks.database, "up");
+
+    const failedResponse = createResponse();
+    const failedHandler = createReadinessCheck({
+      checkDatabase: async () => {
+        throw new Error("Database unavailable.");
+      },
+    });
+
+    await failedHandler({}, failedResponse);
+
+    assert.equal(failedResponse.statusCode, 503);
+    assert.equal(failedResponse.body.success, false);
+    assert.equal(failedResponse.body.status, "not_ready");
+    assert.equal(failedResponse.body.checks.database, "down");
   });
 
   it("parses authentication payloads", () => {

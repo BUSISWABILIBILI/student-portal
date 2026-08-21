@@ -178,6 +178,7 @@ Before release:
 After release:
 
 - Check `GET /api/health`.
+- Check `GET /api/ready` to confirm the API can reach MySQL.
 - Sign in as an administrator and a student.
 - Verify dashboard, course, result, announcement, and account pages.
 - Confirm error logs do not contain secret values.
